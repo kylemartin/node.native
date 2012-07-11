@@ -317,7 +317,9 @@ class XcodeSettings(object):
       # TODO: Supporting fat binaries will be annoying.
       self._WarnUnimplemented('ARCHS')
       archs = ['i386']
-    cflags.append('-arch ' + archs[0])
+      
+    if (self._Test('DISABLE_ARCH', 'NO', default='NO')):
+        cflags.append('-arch ' + archs[0])
 
     if archs[0] in ('i386', 'x86_64'):
       if self._Test('GCC_ENABLE_SSE3_EXTENSIONS', 'YES', default='NO'):
@@ -353,6 +355,7 @@ class XcodeSettings(object):
     """Returns flags that need to be added to .cc, and .mm compilations."""
     self.configname = configname
     cflags_cc = []
+    self._Appendf(cflags_cc, 'GCC_CC_LANGUAGE_STANDARD', '-std=%s')
     if self._Test('GCC_ENABLE_CPP_RTTI', 'NO', default='YES'):
       cflags_cc.append('-fno-rtti')
     if self._Test('GCC_ENABLE_CPP_EXCEPTIONS', 'NO', default='YES'):
@@ -541,7 +544,9 @@ class XcodeSettings(object):
       # TODO: Supporting fat binaries will be annoying.
       self._WarnUnimplemented('ARCHS')
       archs = ['i386']
-    ldflags.append('-arch ' + archs[0])
+    
+    if (self._Test('DISABLE_ARCH', 'NO', default='NO')):
+        ldflags.append('-arch ' + archs[0])
 
     # Xcode adds the product directory by default.
     ldflags.append('-L' + product_dir)
