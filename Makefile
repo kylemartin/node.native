@@ -1,56 +1,32 @@
-CXXFLAGS = -std=gnu++0x -Iext/libuv/include -Iext/http-parser -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
-CXXFLAGS_DEBUG = $(CXXFLAGS) -g -O0
+-include config.mk
 
-OS_NAME=$(shell uname -s)
-ifeq (${OS_NAME},Darwin)
-	RTLIB=
-else
-	RTLIB=-lrt
-endif
+BUILDTYPE ?= Release
+PYTHON ?= python
 
-all: native.a echo webserver
+# BUILDTYPE=Debug builds both release and debug builds. If you want to compile
+# just the debug build, run `make -C out BUILDTYPE=Debug` instead.
 
-debug: echo_debug webserver_debug
+all: out/Makefile native
 
-echo: native.a echo.cpp 
-	$(CXX) $(CXXFLAGS) -o echo echo.cpp native.a $(RTLIB) -lm -lpthread
-	
-webserver: native.a webserver.cpp 
-	$(CXX) $(CXXFLAGS) -o webserver webserver.cpp native.a $(RTLIB) -lm -lpthread	
-	
-echo_debug: echo.cpp native.h $(wildcard native/*.h) $(wildcard native/detail/*.h) ext/libuv/uv.a ext/http-parser/http_parser.o
-	$(CXX) $(CXXFLAGS_DEBUG) -o echo_debug echo.cpp ext/libuv/uv.a ext/http-parser/http_parser.o $(RTLIB) -lm -lpthread	
-	
-webserver_debug: webserver.cpp native.h $(wildcard native/*.h) $(wildcard native/detail/*.h) ext/libuv/uv.a ext/http-parser/http_parser.o
-	$(CXX) $(CXXFLAGS_DEBUG) -o webserver_debug webserver.cpp ext/libuv/uv.a ext/http-parser/http_parser.o $(RTLIB) -lm -lpthread
+native: config.gypi
+	$(MAKE) -C out BUILDTYPE=Release
 
-native.a: ext/libuv/uv.a ext/http-parser/http_parser.o native.o
-	mkdir -p objs
-	cd objs; \
-	ar x ../ext/libuv/uv.a; \
-	cp ../ext/http-parser/http_parser.o .; \
-	cp ../native.o .; \
-	ar rcs native.a *.o; \
-	cp native.a ../; \
-	cd ..; \
-	rm -rf objs	
+config.gypi: configure
+	./configure
 
-ext/libuv/uv.a:
-	$(MAKE) -C ext/libuv
+out/Makefile: native.gyp config.gypi common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp 
+	./tools/gyp_native -f make
 
-ext/http-parser/http_parser.o:
-	$(MAKE) -C ext/http-parser http_parser.o
-	
-native.o: native.cpp native.h $(wildcard native/*.h) $(wildcard native/detail/*.h) 
-	$(CXX) $(CXXFLAGS) -o native.o -c native.cpp $(RTLIB) -lm -lpthread
-	
-	
 clean:
-	rm -f ext/libuv/uv.a
-	rm -f ext/http-parser/http_parser.o
-	rm -f native.a
-	rm -f echo
-	rm -f echo_debug
-	rm -f webserver
-	rm -f webserver_debug
-	rm -rf objs
+	-rm -rf out/Makefile 
+	-find out/ -name '*.o' -o -name '*.a' | xargs rm -rf
+
+distclean:
+	-rm -rf out
+	-rm -f config.gypi
+	-rm -f config.mk
+
+# The .PHONY is needed to ensure that we recursively use the out/Makefile
+# to check for changes.
+
+.PHONY: native clean distclean all

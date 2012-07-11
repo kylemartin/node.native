@@ -13,3 +13,5 @@ webserver_debug
 *.o
 
 doc/html
+
+.svn
