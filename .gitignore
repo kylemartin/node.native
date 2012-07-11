@@ -11,3 +11,5 @@ webserver_debug
 
 *.a
 *.o
+
+doc/html
