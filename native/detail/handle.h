@@ -26,14 +26,14 @@ namespace native
             {
                 if(!unref_) return;
                 unref_ = false;
-                uv_ref(uv_default_loop());
+                uv_ref(handle_);
             }
 
             virtual void unref()
             {
                 if(unref_) return;
                 unref_ = true;
-                uv_unref(uv_default_loop());
+                uv_unref(handle_);
             }
 
             virtual void set_handle(uv_handle_t* h)

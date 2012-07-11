@@ -68,7 +68,7 @@ namespace native
 
                     self->tick();
                 });
-                uv_unref(uv_default_loop());
+                uv_unref(reinterpret_cast<uv_handle_t*>(&prepare_));
 
                 uv_check_init(uv_default_loop(), &check_);
                 check_.data = this;
@@ -79,10 +79,11 @@ namespace native
 
                     self->tick();
                 });
-                uv_unref(uv_default_loop());
+                uv_unref(reinterpret_cast<uv_handle_t*>(&check_));
 
                 uv_idle_init(uv_default_loop(), &idle_);
-                uv_unref(uv_default_loop());
+                uv_unref(reinterpret_cast<uv_handle_t*>(&idle_));
+                idle_.data = this;
             }
 
             void tick()
@@ -93,7 +94,7 @@ namespace native
                 if(uv_is_active(reinterpret_cast<uv_handle_t*>(&idle_)))
                 {
                     uv_idle_stop(&idle_);
-                    uv_unref(uv_default_loop());
+                    uv_unref(reinterpret_cast<uv_handle_t*>(&idle_));
                 }
 
                 auto fail_it = tick_callbacks_.end();
@@ -120,12 +121,13 @@ namespace native
                 {
                     uv_idle_start(&idle_, [](uv_idle_t* handle, int status) {
                         auto self = reinterpret_cast<node*>(handle->data);
+                        assert(self);
                         assert(self && &self->idle_ == handle);
                         assert(status == 0);
 
                         self->tick();
                     });
-                    uv_ref(uv_default_loop());
+                    uv_unref(reinterpret_cast<uv_handle_t*>(&idle_));
                 }
             }
 
