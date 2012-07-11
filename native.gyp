@@ -32,6 +32,24 @@
         'deps/http-parser/http_parser.gyp:http_parser',
       ],
     },
+    # {
+    #   'target_name': 'webclient',
+    #   'type': 'executable',
+    #   'sources': [ 'webclient.cpp' ],
+    #   'dependencies': [ 'native' ]
+    # },
+    {
+      'target_name': 'webserver',
+      'type': 'executable',
+      'sources': [ 'webserver.cpp' ],
+      'dependencies': [ 'native' ]
+    },
+    {
+      'target_name': 'echo',
+      'type': 'executable',
+      'sources': [ 'echo.cpp' ],
+      'dependencies': [ 'native' ]
+    }
   ] # end targets
 }
 
