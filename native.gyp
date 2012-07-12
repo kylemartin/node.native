@@ -8,7 +8,7 @@
       'type': 'static_library',
 
       'sources': [
-        'native.cpp',
+        'src/native.cpp',
       ],
       
       'dependencies': [
@@ -17,12 +17,14 @@
       ],
 
       'include_dirs': [
+        'include',
         'deps/uv/src/ares',
         '<(SHARED_INTERMEDIATE_DIR)',
       ],
 
       'direct_dependent_settings': {
         'include_dirs': [
+          'include',
           'deps/uv/src/ares',
         ],
       },
@@ -41,13 +43,13 @@
     {
       'target_name': 'webserver',
       'type': 'executable',
-      'sources': [ 'webserver.cpp' ],
+      'sources': [ 'examples/webserver.cpp' ],
       'dependencies': [ 'native' ]
     },
     {
       'target_name': 'echo',
       'type': 'executable',
-      'sources': [ 'echo.cpp' ],
+      'sources': [ 'examples/echo.cpp' ],
       'dependencies': [ 'native' ]
     }
   ] # end targets
