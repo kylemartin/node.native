@@ -117,6 +117,7 @@ namespace native
                 , connect_queue_()
                 , on_data_()
                 , on_end_()
+            	, timeout_emitter_(new TimeoutEmitter(this))
             {
                 // register events
                 registerEvent<event::connect>();
@@ -245,7 +246,7 @@ namespace native
                     return false;
                 }
 
-                timers::active(this);
+                timers::active(timeout_emitter_);
 
                 if(!stream_) throw Exception("This socket is closed.");
 
@@ -258,7 +259,7 @@ namespace native
                         return;
                     }
 
-                    timers::active(this);
+                    timers::active(timeout_emitter_);
 
                     pending_write_reqs_--;
                     if(pending_write_reqs_ == 0) emit<event::drain>();
@@ -354,14 +355,14 @@ namespace native
             {
                 if(msecs > 0)
                 {
-                    timers::enroll(this, msecs);
-                    timers::active(this);
+                    timers::enroll(timeout_emitter_, msecs);
+                    timers::active(timeout_emitter_);
 
                     if(callback) once<event::timeout>(callback);
                 }
                 else // msecs == 0
                 {
-                    timers::unenroll(this);
+                    timers::unenroll(timeout_emitter_);;
                 }
             }
 
@@ -485,7 +486,7 @@ namespace native
                 on<event::connect>(callback);
 
                 // refresh timer
-                timers::active(this);
+                timers::active(timeout_emitter_);
 
                 connecting_ = true;
                 writable(true);
@@ -515,7 +516,7 @@ namespace native
                                 readable(stream_->is_readable());
                                 writable(stream_->is_writable());
 
-                                timers::active(this);
+                                timers::active(timeout_emitter_);
 
                                 if(readable()) stream_->read_start();
 
@@ -611,7 +612,7 @@ namespace native
                 readable(false);
                 writable(false);
 
-                timers::unenroll(this);
+                timers::unenroll(timeout_emitter_);;
 
                 // Because of C++ declration order, we cannot call Server class member functions here.
                 // Instead, Server handles this using delegate.
@@ -649,7 +650,7 @@ namespace native
 
             void on_read(const char* buffer, std::size_t offset, std::size_t length, detail::resval rv)
             {
-                timers::active(this);
+                timers::active(timeout_emitter_);
 
                 std::size_t end_pos = offset + length;
                 if(buffer)
@@ -708,6 +709,8 @@ namespace native
 
             std::function<void(const char*, std::size_t, std::size_t)> on_data_;
             std::function<void()> on_end_;
+
+            std::shared_ptr<native::TimeoutEmitter> timeout_emitter_;
 
             // only for Server class
             struct internal_destroy_event : public util::callback_def<> {};

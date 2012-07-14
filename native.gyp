@@ -34,12 +34,12 @@
         'deps/http-parser/http_parser.gyp:http_parser',
       ],
     },
-    # {
-    #   'target_name': 'webclient',
-    #   'type': 'executable',
-    #   'sources': [ 'webclient.cpp' ],
-    #   'dependencies': [ 'native' ]
-    # },
+    {
+      'target_name': 'timers',
+      'type': 'executable',
+      'sources': ['examples/timers.cc'],
+      'dependencies': ['native'],
+    },
     {
       'target_name': 'webserver',
       'type': 'executable',
@@ -51,7 +51,7 @@
       'type': 'executable',
       'sources': [ 'examples/echo.cpp' ],
       'dependencies': [ 'native' ]
-    }
+    },
   ] # end targets
 }
 
