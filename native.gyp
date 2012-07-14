@@ -52,6 +52,12 @@
       'sources': [ 'examples/echo.cpp' ],
       'dependencies': [ 'native' ]
     },
+    {
+      'target_name': 'socket',
+      'type': 'executable',
+      'sources': ['examples/socket.cc'],
+      'dependencies': ['native'],
+    },
   ] # end targets
 }
 

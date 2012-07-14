@@ -20,8 +20,6 @@ namespace native
             , is_stdio_(false)
             , pipe_()
         {
-            assert(stream_);
-
             if(readable_) registerEvent<event::data>();
             if(readable_) registerEvent<event::end>();
             registerEvent<event::error>();

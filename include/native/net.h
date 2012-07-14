@@ -630,7 +630,7 @@ namespace native
                     stream_ = nullptr;
                 }
 
-                process::nextTick([&](){
+                process::nextTick([=](){
                     if(failed) emit<event::error>(exception);
 
                     // TODO: node.js implementation pass one argument whether there was errors or not.
