@@ -130,9 +130,6 @@ namespace native
             resval(int error_code=error::ok) : error_code_(error_code) {}
             explicit resval(uv_err_t e) : error_code_(e.code) {}
             explicit resval(uv_err_code code) : error_code_(code) {}
-            resval(const resval& c) : error_code_(c.error_code_) {}
-            resval(resval&& c) : error_code_(c.error_code_) {}
-            ~resval() {}
 
             operator bool() const { return error_code_ == error::ok; }
             bool operator !() const { return  error_code_ != error::ok; }

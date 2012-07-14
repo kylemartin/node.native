@@ -145,6 +145,7 @@ namespace native
             bool upgrade() const { return upgrade_; }
 
         private:
+            headers_type headers_;
             std::string schema_;
             std::string host_;
             int port_;
@@ -154,7 +155,6 @@ namespace native
             std::string method_;
             std::string http_version_;
             bool upgrade_;
-            headers_type headers_;
         };
 
         class http_parser_context
@@ -330,10 +330,10 @@ namespace native
 
         private:
             http_parser parser_;
-            http_parser_settings settings_;
             bool was_header_value_;
             std::string last_header_field_;
             std::string last_header_value_;
+            http_parser_settings settings_;
 
             resval error_;
             bool parse_completed_;

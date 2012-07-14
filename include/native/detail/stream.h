@@ -20,9 +20,9 @@ namespace native
             stream(uv_stream_t* stream)
                 : handle(reinterpret_cast<uv_handle_t*>(stream))
                 , stream_(stream)
+                , on_connection_()
                 , on_read_()
                 , on_complete_()
-                , on_connection_()
             {
                 assert(stream_);
             }
@@ -60,7 +60,6 @@ namespace native
 
             virtual resval read_start()
             {
-                bool res = false;
                 bool ipc_pipe = stream_->type == UV_NAMED_PIPE && reinterpret_cast<uv_pipe_t*>(stream_)->ipc;
 
                 if(ipc_pipe)
@@ -185,7 +184,7 @@ namespace native
                 }
                 else
                 {
-                    assert(nread <= buf.len);
+                    assert((size_t) nread <= buf.len);
                     if(nread > 0)
                     {
                         // see uv_read2_start()
@@ -211,13 +210,13 @@ namespace native
                 if(buf.base) delete buf.base;
             }
 
+        private:
+            uv_stream_t* stream_;
         protected:
             on_connection_callback_type on_connection_;
             on_read_callback_type on_read_;
             on_complete_callback_type on_complete_;
 
-        private:
-            uv_stream_t* stream_;
         };
     }
 }

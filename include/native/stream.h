@@ -177,8 +177,8 @@ namespace native
             void* dest_on_end_clenaup_;
             void* dest_on_close_clenaup_;
 
-            std::size_t pipe_count_;
             bool did_on_end_;
+            std::size_t pipe_count_;
         };
 
     private:

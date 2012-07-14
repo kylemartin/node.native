@@ -689,15 +689,15 @@ namespace native
             }
 
         private:
-            detail::stream* stream_;
             int socket_type_;
+            detail::stream* stream_;
+
+            Server* server_;
 
             int flags_;
             bool allow_half_open_;
             bool connecting_;
             bool destroyed_;
-
-            Server* server_;
 
             std::size_t bytes_written_;
             std::size_t bytes_read_;

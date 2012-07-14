@@ -5,12 +5,18 @@ PYTHON ?= python
 
 # BUILDTYPE=Debug builds both release and debug builds. If you want to compile
 # just the debug build, run `make -C out BUILDTYPE=Debug` instead.
-
+ifeq ($(BUILDTYPE),Release)
 all: out/Makefile native
+else
+all: out/Makefile native_g
+endif
 
 native: config.gypi
 	$(MAKE) -C out BUILDTYPE=Release
 
+native_g: config.gypi
+	$(MAKE) -C out BUILDTYPE=Debug
+	
 config.gypi: configure
 	./configure
 
