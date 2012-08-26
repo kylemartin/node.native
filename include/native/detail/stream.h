@@ -122,10 +122,12 @@ namespace native
 
             virtual resval shutdown()
             {
+            	CRUMB();
                 auto req = new uv_shutdown_t;
                 assert(req);
 
                 bool res = uv_shutdown(req, stream_, [](uv_shutdown_t* req, int status){
+                	CRUMB();
                     auto self = reinterpret_cast<stream*>(req->handle->data);
                     assert(self);
                     if(self->on_complete_) self->on_complete_(status?get_last_error():resval());

@@ -151,7 +151,7 @@ namespace native
                 case error::http_parser_fail: return "Failed to parser HTTP request or response.";
                 case error::http_parser_url_fail: return "Failed to parse URL elements in HTTP request or response.";
                 case error::http_parser_incomplete: return "HTTP request or response message is not complete.";
-                default: return nullptr;
+                default: return "unknown native::error";
                 }
             }
         private:

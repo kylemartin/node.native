@@ -53,7 +53,7 @@ namespace native
 		friend class timer;
 		friend class timers;
 	public:
-		TimeoutHandler() : idleTimeout_(-1) {}
+		TimeoutHandler() : idleTimeout_(-1), idleStart_(-1) {}
 		virtual void on_timeout() = 0;
 		virtual ~TimeoutHandler() { std::cerr << "~TimeoutHandler()" << std::endl; }
 	private:
@@ -97,7 +97,8 @@ namespace native
 		typedef std::list<std::shared_ptr<TimeoutHandler>> list_type;
 
 		// TODO: make this noncopyable
-		timer() : handle(reinterpret_cast<uv_handle_t*>(&timer_)) {
+		timer() : handle(reinterpret_cast<uv_handle_t*>(&timer_))
+				, on_timeout_(), list_(), timeout_(-1) {
 			int r = uv_timer_init(uv_default_loop(), &timer_);
 			assert(r == 0);
 			timer_.data = this;

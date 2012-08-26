@@ -178,6 +178,27 @@ namespace native
          *  @code void callback() @endcode
          */
         struct timeout: public util::callback_def<> {};
+
+        /*
+         * Readline
+         */
+        struct line: public util::callback_def<const std::string&> {};
+        /**
+         *  @brief 'pause' event.
+         *
+         *  @remark
+         *  Callback function has the following signature.
+         *  @code void callback() @endcode
+         */
+        struct pause: public util::callback_def<> {};
+        /**
+         *  @brief 'resume' event.
+         *
+         *  @remark
+         *  Callback function has the following signature.
+         *  @code void callback() @endcode
+         */
+        struct resume: public util::callback_def<> {};
     }
 
     /**
@@ -313,6 +334,7 @@ namespace native
         template<typename E, typename ...A>
         bool emit(A&&... args)
         {
+        	CRUMB();
             auto s = events_.find(typeid(E).hash_code());
             if(s != events_.end())
             {

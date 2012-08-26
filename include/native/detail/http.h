@@ -87,9 +87,9 @@ namespace native
         {
             friend class http_parser_context;
 
+        public:
             typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
 
-        public:
             http_parse_result()
                 : headers_()
                 , schema_()
@@ -101,6 +101,8 @@ namespace native
                 , method_()
                 , http_version_()
                 , upgrade_(false)
+            	, should_keep_alive_(false)
+            	, status_(0)
             {}
 
             http_parse_result(const http_parse_result& c)
@@ -114,6 +116,8 @@ namespace native
                 , method_(c.method_)
                 , http_version_(c.http_version_)
                 , upgrade_(c.upgrade_)
+				, should_keep_alive_(c.should_keep_alive_)
+				, status_(c.status_)
             {}
 
             http_parse_result(http_parse_result&& c)
@@ -127,6 +131,8 @@ namespace native
                 , method_(std::move(c.method_))
                 , http_version_(std::move(c.http_version_))
                 , upgrade_(c.upgrade_)
+				, should_keep_alive_(c.should_keep_alive_)
+				, status_(c.status_)
             {}
 
             ~http_parse_result()
@@ -139,186 +145,317 @@ namespace native
             const std::string& path() const { return path_; }
             const std::string& query() const { return query_; }
             const std::string& fragment() const { return fragment_; }
+
             const headers_type& headers() const { return headers_; }
+            const headers_type& trailers() const { return trailers_; }
+
             const std::string& method() const { return method_; }
             const std::string& http_version() const { return http_version_; }
             bool upgrade() const { return upgrade_; }
+            bool should_keep_alive() const { return should_keep_alive_; }
+
+            unsigned short status() const { return status_; }
 
         private:
             headers_type headers_;
+            headers_type trailers_; // Headers received after the body
+
+            // URL fields
             std::string schema_;
             std::string host_;
             int port_;
             std::string path_;
             std::string query_;
             std::string fragment_;
+
+            // Request details
             std::string method_;
             std::string http_version_;
             bool upgrade_;
+            bool should_keep_alive_;
+
+            // Response details
+            unsigned short status_;
         };
 
+        /**
+         * Encapsulates an http_parser storing results in an http_parse_result.
+         * This also provides callbacks for inspecting the http_parse_result at
+         * different stages of parsing.
+         */
         class http_parser_context
         {
+        private:
+            http_parser parser_;
+            http_parser_settings settings_;
+            http_parse_result result_;
+            url_obj url_;
+
+            bool was_header_value_;
+            std::string last_header_field_;
+            std::string last_header_value_;
+
+            resval error_;
+            bool parse_completed_;
+            bool have_flushed_;
+
+            typedef std::function<void(const http_parse_result&)> on_headers_complete_type;
+            typedef std::function<void(const char* buf, size_t off, size_t len)> on_body_type;
+            typedef std::function<void(const http_parse_result&)> on_message_complete_type;
+            typedef std::function<void(const resval&)> on_error_type;
+
+            on_headers_complete_type on_headers_complete_;
+            on_body_type on_body_;
+            on_message_complete_type on_message_complete_;
+            on_error_type on_error_;
+
         public:
             http_parser_context(http_parser_type parser_type)
                 : parser_()
+                , settings_()
+                , result_()
+                , url_()
                 , was_header_value_(true)
                 , last_header_field_()
                 , last_header_value_()
-                , settings_()
                 , error_()
                 , parse_completed_(false)
-                , url_()
-                , result_()
+            	, have_flushed_(false)
+            	, on_headers_complete_()
+            	, on_body_()
+            	, on_message_complete_()
+            	, on_error_()
             {
                 http_parser_init(&parser_, parser_type);
                 parser_.data = this;
-
-                settings_.on_url = [](http_parser* parser, const char *at, size_t len) {
-                    auto self = reinterpret_cast<http_parser_context*>(parser->data);
-                    assert(self);
-
-                    assert(at && len);
-
-                    if(!self->url_.parse(at, len))
-                    {
-                        self->error_ = resval(error::http_parser_url_fail);
-                        return 1;
-                    }
-
-                    return 0;
-                };
-                settings_.on_header_field = [](http_parser* parser, const char* at, size_t len) {
-                    auto self = reinterpret_cast<http_parser_context*>(parser->data);
-                    assert(self);
-
-                    if(self->was_header_value_)
-                    {
-                        // new field started
-                        if(!self->last_header_field_.empty())
-                        {
-                            // add new entry
-                            self->result_.headers_[self->last_header_field_] = self->last_header_value_;
-                            self->last_header_value_.clear();
-                        }
-
-                        self->last_header_field_ = std::string(at, len);
-                        self->was_header_value_ = false;
-                    }
-                    else
-                    {
-                        // appending
-                        self->last_header_field_ += std::string(at, len);
-                    }
-
-                    return 0;
-                };
-                settings_.on_header_value = [](http_parser* parser, const char* at, size_t len) {
-                    auto self = reinterpret_cast<http_parser_context*>(parser->data);
-                    assert(self);
-
-                    if(!self->was_header_value_)
-                    {
-                        self->last_header_value_ = std::string(at, len);
-                        self->was_header_value_ = true;
-                    }
-                    else
-                    {
-                        // appending
-                        self->last_header_value_ += std::string(at, len);
-                    }
-
-                    return 0;
-                };
-                settings_.on_headers_complete = [](http_parser* parser) {
-                    auto self = reinterpret_cast<http_parser_context*>(parser->data);
-                    assert(self);
-
-                    // add last entry if any
-                    if(!self->last_header_field_.empty())
-                    {
-                        // add new entry
-                        self->result_.headers_[self->last_header_field_] = self->last_header_value_;
-                    }
-
-                    return 0;
-                };
-                settings_.on_message_complete = [](http_parser* parser) {
-                    auto self = reinterpret_cast<http_parser_context*>(parser->data);
-                    assert(self);
-
-                    // get host and port info from header entry "Host"
-                    std::string host("");
-                    int port = 0;
-                    auto x = self->result_.headers_.find("host");
-                    if(x != self->result_.headers_.end())
-                    {
-                        auto s = x->second;
-                        auto colon = s.find_last_of(':');
-                        if(colon == s.npos)
-                        {
-                            host = s;
-                        }
-                        else
-                        {
-                            host = s.substr(0, colon);
-                            port = std::stoi(s.substr(colon+1));
-                        }
-                    }
-
-                    // url info
-                    self->result_.schema_ = self->url_.has_schema()?self->url_.schema():"HTTP";
-                    self->result_.path_ = self->url_.has_path()?self->url_.path():"/";
-                    self->result_.query_ = self->url_.has_query()?self->url_.query():"";
-                    self->result_.fragment_ = self->url_.has_fragment()?self->url_.fragment():"";
-                    self->result_.host_ = self->url_.has_host()?self->url_.host():host;
-
-                    // determine port number
-                    if(self->url_.has_port()) { self->result_.port_ = self->url_.port(); }
-                    else if(port != 0) { self->result_.port_ = port; }
-                    else
-                    {
-                        if(util::text::compare_no_case(self->result_.schema_, "HTTPS")) self->result_.port_ = 443;
-                        else self->result_.port_ = 80;
-                    }
-
-                    // HTTP method
-                    self->result_.method_ = http_method_str(static_cast<http_method>(parser->method));
-
-                    // HTTP version
-                    std::stringstream version;
-                    version << parser->http_major << "." << parser->http_minor;
-                    self->result_.http_version_ = version.str();
-
-                    self->parse_completed_ = true;
-                    return 0;
-                };
+                settings_.on_message_begin = on_message_begin;
+                settings_.on_url = on_url;
+                settings_.on_header_field = on_header_field;
+				settings_.on_header_value = on_header_value;
+				settings_.on_headers_complete = on_headers_complete;
+				settings_.on_body = on_body;
+				settings_.on_message_complete = on_message_complete;
             }
 
             ~http_parser_context()
             {}
 
+            static int on_message_begin(http_parser* parser) {
+            	CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+            	// Reset parser state
+            	self->url_ = url_obj(); // TODO: add reset function to url_obj
+            	return 0;
+            }
+
+            static int on_url(http_parser* parser, const char *at, size_t len) {
+            	CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+				assert(at && len);
+
+				if(!self->url_.parse(at, len))
+				{
+					self->error_ = resval(error::http_parser_url_fail);
+					return 1;
+				}
+
+				return 0;
+			}
+
+			static int on_header_field(http_parser* parser, const char* at, size_t len) {
+				CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+				if(self->was_header_value_)
+				{
+					// new field started
+					if(!self->last_header_field_.empty())
+					{
+						// add new entry
+						self->result_.headers_[self->last_header_field_] = self->last_header_value_;
+						self->last_header_value_.clear();
+
+						// TODO: call Flush if ran out of space for headers
+					}
+
+					self->last_header_field_ = std::string(at, len);
+					self->was_header_value_ = false;
+				}
+				else
+				{
+					// appending
+					self->last_header_field_ += std::string(at, len);
+				}
+
+				return 0;
+			}
+
+			static int on_header_value(http_parser* parser, const char* at, size_t len) {
+				CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+				if(!self->was_header_value_)
+				{
+					self->last_header_value_ = std::string(at, len);
+					self->was_header_value_ = true;
+				}
+				else
+				{
+					// appending
+					self->last_header_value_ += std::string(at, len);
+				}
+
+				return 0;
+			}
+
+			/**
+			 * Fill in http_parser_result using current parser state
+			 */
+			void prepare_result() {
+				CRUMB();
+				// get host and port info from header entry "Host"
+				std::string host("");
+				int port = 0;
+				auto x = result_.headers_.find("host");
+				if(x != result_.headers_.end())
+				{
+					auto s = x->second;
+					auto colon = s.find_last_of(':');
+					if(colon == s.npos)
+					{
+						host = s;
+					}
+					else
+					{
+						host = s.substr(0, colon);
+						port = std::stoi(s.substr(colon+1));
+					}
+				}
+
+				// url info
+				result_.schema_ = url_.has_schema()?url_.schema():"HTTP";
+				result_.path_ = url_.has_path()?url_.path():"/";
+				result_.query_ = url_.has_query()?url_.query():"";
+				result_.fragment_ = url_.has_fragment()?url_.fragment():"";
+				result_.host_ = url_.has_host()?url_.host():host;
+
+				// determine port number
+				if(url_.has_port()) { result_.port_ = url_.port(); }
+				else if(port != 0) { result_.port_ = port; }
+				else
+				{
+					if(util::text::compare_no_case(result_.schema_, "HTTPS")) result_.port_ = 443;
+					else result_.port_ = 80;
+				}
+
+				// HTTP method
+				result_.method_ = http_method_str(static_cast<http_method>(parser_.method));
+
+				// HTTP status
+				result_.status_ = parser_.status_code;
+
+				// HTTP version
+				std::stringstream version;
+				version << parser_.http_major << "." << parser_.http_minor;
+				result_.http_version_ = version.str();
+
+				// HTTP keep-alive
+				result_.should_keep_alive_ = http_should_keep_alive(&parser_);
+
+				// HTTP upgrade
+				result_.upgrade_ = parser_.upgrade > 0;
+			}
+
+			static int on_headers_complete(http_parser* parser) {
+				CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+				assert(&self->parser_ == parser);
+
+				// add last entry if any
+				if(!self->last_header_field_.empty())
+				{
+					// add new entry
+					self->result_.headers_[self->last_header_field_] = self->last_header_value_;
+				}
+
+				self->prepare_result();
+
+				// Call handle_headers_complete
+				if (self->on_headers_complete_) {
+					self->on_headers_complete_(self->result_);
+				}
+				return 0;
+			}
+
+			static int on_body(http_parser* parser, const char* at, size_t len) {
+				CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+				// Call handle_body
+				if (self->on_body_) {
+					self->on_body_(at, 0, len);
+				}
+				return 0;
+			}
+
+			static int on_message_complete(http_parser* parser) {
+				CRUMB();
+				auto self = reinterpret_cast<http_parser_context*>(parser->data);
+				assert(self);
+
+				self->parse_completed_ = true;
+
+				// Call handle_message_complete
+				if (self->on_message_complete_) {
+					self->on_message_complete_(self->result_);
+				}
+				return 0;
+			}
+
         public:
+			void on_headers_complete(on_headers_complete_type callback) {
+				on_headers_complete_ = callback;
+			}
+
+			void on_body(on_body_type callback) {
+				on_body_ = callback;
+			}
+
+			void on_message_complete(on_message_complete_type callback) {
+				on_message_complete_ = callback;
+			}
+
+			void on_error(on_error_type callback) {
+				on_error_ = callback;
+			}
+
             bool is_finished() const
             {
                 // there was an error or parse completed.
                 return !error_ || parse_completed_;
             }
 
-            bool feed_data(const char* data, std::size_t offset, std::size_t length, http_parse_callback_type callback)
+            bool feed_data(const char* data, std::size_t offset, std::size_t length)
             {
+            	CRUMB();
                 ::http_parser_execute(&parser_, &settings_, &data[offset], length);
-
-                if(!error_)
+                if (parser_.http_errno != HPE_OK)
                 {
                     // there was an error
-                    callback(nullptr, error_);
+                    if (on_error_) on_error_(resval(parser_.http_errno));
                     return true;
                 }
                 else if(parse_completed_)
                 {
-                    // finished
-                    callback(&result_, resval());
+                    // finished, should have invoked on_message_complete already
                     return true;
                 }
                 else
@@ -327,61 +464,49 @@ namespace native
                     return false;
                 }
             }
-
-        private:
-            http_parser parser_;
-            bool was_header_value_;
-            std::string last_header_field_;
-            std::string last_header_value_;
-            http_parser_settings settings_;
-
-            resval error_;
-            bool parse_completed_;
-            url_obj url_;
-            http_parse_result result_;
         };
 
-        resval parse_http_request(stream* input, http_parse_callback_type callback)
-        {
-            auto ctx = new http_parser_context(HTTP_REQUEST);
-            assert(ctx);
-
-            input->on_read([=](const char* data, std::size_t offset, std::size_t length, stream*, resval rv) {
-                if(rv)
-                {
-                    if(ctx->feed_data(data, offset, length, callback))
-                    {
-                        // parse end
-                        input->read_stop();
-                        delete ctx;
-                    }
-                    else
-                    {
-                        // more reads required: keep reading!
-                    }
-                }
-                else
-                {
-                    if(rv.code() == error::eof)
-                    {
-                        // EOF
-                        if(!ctx->is_finished())
-                        {
-                            // HTTP request was not properly parsed.
-                            callback(nullptr, resval(error::http_parser_incomplete));
-                        }
-                    }
-                    else
-                    {
-                        // error
-                        callback(nullptr, rv);
-                    }
-                    delete ctx;
-                }
-            });
-
-            return input->read_start();
-        }
+//        resval parse_http(stream* input, http_parse_callback_type callback, http_parser_type type = HTTP_BOTH)
+//        {
+//            auto ctx = new http_parser_context(type);
+//            assert(ctx);
+//
+//            input->on_read([=](const char* data, std::size_t offset, std::size_t length, stream*, resval rv) {
+//                if(rv)
+//                {
+//                    if(ctx->feed_data(data, offset, length, callback))
+//                    {
+//                        // parse end
+//                        input->read_stop();
+//                        delete ctx;
+//                    }
+//                    else
+//                    {
+//                        // more reads required: keep reading!
+//                    }
+//                }
+//                else
+//                {
+//                    if(rv.code() == error::eof)
+//                    {
+//                        // EOF
+//                        if(!ctx->is_finished())
+//                        {
+//                            // HTTP request was not properly parsed.
+//                            callback(nullptr, resval(error::http_parser_incomplete));
+//                        }
+//                    }
+//                    else
+//                    {
+//                        // error
+//                        callback(nullptr, rv);
+//                    }
+//                    delete ctx;
+//                }
+//            });
+//
+//            return input->read_start();
+//        }
 
         std::string http_status_text(int status_code)
         {
@@ -442,6 +567,7 @@ namespace native
                 default: assert(false); return std::string();
             }
         }
+
     }
 }
 

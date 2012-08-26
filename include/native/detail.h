@@ -10,5 +10,6 @@
 #include "detail/stream.h"
 #include "detail/tcp.h"
 #include "detail/node.h"
+#include "detail/tty.h"
 
 #endif

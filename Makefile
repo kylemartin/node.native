@@ -17,10 +17,10 @@ native: config.gypi
 native_g: config.gypi
 	$(MAKE) -C out BUILDTYPE=Debug
 	
-config.gypi: configure
+config.gypi: configure native.gyp common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp
 	./configure
 
-out/Makefile: native.gyp config.gypi common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp 
+out/Makefile: config.gypi 
 	./tools/gyp_native -f make
 
 clean:

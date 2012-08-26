@@ -13,6 +13,8 @@
 #include "native/detail.h"
 #include "native/net.h"
 #include "native/http.h"
+#include "native/tty.h"
+//#include "native/readline.h"
 
 /**
  *  All types of node.native are defined under native namespace.

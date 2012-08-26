@@ -80,6 +80,15 @@ namespace native
         /**
          *  @brief Socket class.
          *
+         *	Emits events:
+         *	  connect
+         *	  data
+         *	  end
+         *	  timeout
+         *	  drain
+         *	  error
+         *	  close
+         *
          *  Socket class represents network socket streams.
          */
         class Socket : public Stream
@@ -151,8 +160,10 @@ namespace native
              */
             virtual bool end(const Buffer& buffer)
             {
+            	CRUMB();
                 if(connecting_ && ((flags_ & FLAG_SHUTDOWNQUED) == 0))
                 {
+                	CRUMB();
                     if(buffer.size()) write(buffer);
                     writable(false);
                     flags_ |= FLAG_SHUTDOWNQUED;
@@ -165,13 +176,16 @@ namespace native
 
                 if(!readable())
                 {
+                	CRUMB();
                     destroySoon();
                 }
                 else
                 {
+                	CRUMB();
                     flags_ |= FLAG_SHUTDOWN;
 
                     stream_->on_complete([&](detail::resval r){
+                    	CRUMB();
                         assert(flags_ & FLAG_SHUTDOWN);
                         assert(!writable());
 
@@ -189,6 +203,7 @@ namespace native
                         return false;
                     }
                 }
+                CRUMB();
 
                 return true;
             }
@@ -292,6 +307,7 @@ namespace native
              */
             virtual void destroy(Exception exception)
             {
+            	CRUMB();
                 destroy_(true, exception);
             }
 
@@ -302,6 +318,7 @@ namespace native
              */
             virtual void destroy()
             {
+            	CRUMB();
                 destroy_(false, Exception());
             }
 
@@ -312,6 +329,7 @@ namespace native
              */
             virtual void destroySoon()
             {
+            	CRUMB();
                 writable(false);
                 flags_ |= FLAG_DESTROY_SOON;
 
@@ -326,6 +344,7 @@ namespace native
              */
             virtual void pause()
             {
+            	CRUMB();
                 if(stream_)
                 {
                     stream_->read_stop();
@@ -338,6 +357,7 @@ namespace native
              */
             virtual void resume()
             {
+            	CRUMB();
                 if(stream_)
                 {
                     stream_->read_start();
@@ -471,6 +491,7 @@ namespace native
             // TODO: host name lookup (DNS) not supported
             bool connect(const std::string& ip_or_path, int port=0, event::connect::callback_type callback=nullptr)
             {
+            	CRUMB();
                 // recreate socket handle if needed
                 if(destroyed_ || !stream_)
                 {
@@ -501,6 +522,7 @@ namespace native
                     if(rv)
                     {
                         stream_->on_complete([=](detail::resval r){
+                        	CRUMB();
                             if(destroyed_) return;
 
                             assert(connecting_);
@@ -524,7 +546,7 @@ namespace native
 
                                 if(connect_queue_.size())
                                 {
-                                    for(auto c : connect_queue_)
+                                    for(connect_queue_type::value_type c : connect_queue_)
                                     {
                                         write(*c.first, c.second);
                                     }
@@ -587,6 +609,7 @@ namespace native
                 {
                     // set on_read callback
                     stream_->on_read([&](const char* buffer, std::size_t offset, std::size_t length, detail::stream* pending, detail::resval r){
+                    	CRUMB();
                         on_read(buffer, offset, length, r);
                     });
 
@@ -605,6 +628,7 @@ namespace native
 
             void destroy_(bool failed, Exception exception)
             {
+            	CRUMB();
                 if(destroyed_) return;
 
                 connect_queue_cleanup();
@@ -631,6 +655,7 @@ namespace native
                 }
 
                 process::nextTick([=](){
+                	CRUMB();
                     if(failed) emit<event::error>(exception);
 
                     // TODO: node.js implementation pass one argument whether there was errors or not.
@@ -650,6 +675,7 @@ namespace native
 
             void on_read(const char* buffer, std::size_t offset, std::size_t length, detail::resval rv)
             {
+            	CRUMB();
                 timers::active(timeout_emitter_);
 
                 std::size_t end_pos = offset + length;
@@ -705,12 +731,16 @@ namespace native
             std::size_t pending_write_reqs_;
 
             std::size_t connect_queue_size_;
-            std::vector<std::pair<std::shared_ptr<Buffer>, std::function<void()>>> connect_queue_;
+            typedef std::vector<std::pair<
+            	std::shared_ptr<Buffer>,
+            	std::function<void()>
+            >> connect_queue_type;
+            connect_queue_type connect_queue_;
 
             std::function<void(const char*, std::size_t, std::size_t)> on_data_;
             std::function<void()> on_end_;
 
-            std::shared_ptr<native::TimeoutEmitter> timeout_emitter_;
+            std::shared_ptr<native::TimeoutHandler> timeout_emitter_;
 
             // only for Server class
             struct internal_destroy_event : public util::callback_def<> {};
@@ -731,6 +761,7 @@ namespace native
                 , socket_type_(SocketType::None)
                 , pipe_name_()
             {
+            	CRUMB();
                 registerEvent<event::listening>();
                 registerEvent<event::connection>();
                 registerEvent<event::close>();
@@ -744,20 +775,25 @@ namespace native
             // listen over TCP socket
             bool listen(int port, const std::string& host=std::string("0.0.0.0"), event::listening::callback_type listeningListener=nullptr)
             {
+            	CRUMB();
                 return listen_(host, port, listeningListener);
             }
 
             // listen over unix-socket
             bool listen(const std::string& path, event::listening::callback_type listeningListener=nullptr)
             {
+            	CRUMB();
                 return listen_(path, 0, listeningListener);
             }
 
             // TODO: implement Socket::pause() function.
-            void pause(unsigned int msecs) {}
+            void pause(unsigned int msecs) {
+            	CRUMB();
+            }
 
             void close()
             {
+            	CRUMB();
                 if(!stream_)
                 {
                     throw Exception("Server is not running (1).");
@@ -822,9 +858,10 @@ namespace native
         protected:
             void emitCloseIfDrained()
             {
+            	CRUMB();
                 if(stream_ || connections_) return;
 
-                process::nextTick([&](){ emit<event::close>(); });
+                process::nextTick([&](){ CRUMB(); emit<event::close>(); });
             }
 
             detail::stream* create_server_handle(const std::string& ip_or_pipe_name, int port)
@@ -877,6 +914,7 @@ namespace native
 
             bool listen_(const std::string& ip_or_pipe_name, int port, event::listening::callback_type listeningListener)
             {
+            	CRUMB();
                 if(listeningListener) on<event::listening>(listeningListener);
 
                 if(!stream_)
@@ -885,6 +923,7 @@ namespace native
                     if(!stream_)
                     {
                         process::nextTick([&](){
+                        	CRUMB();
                             emit<event::error>(Exception("Failed to create a server socket (1)."));
                         });
                         return false;
@@ -892,6 +931,7 @@ namespace native
                 }
 
                 stream_->on_connection([&](detail::stream* s, detail::resval r){
+                	CRUMB();
                     if(!r)
                     {
                         emit<event::error>(Exception(r, "Failed to accept client socket (1)."));
@@ -909,6 +949,7 @@ namespace native
                         assert(socket);
 
                         socket->once<Socket::internal_destroy_event>([&](){
+                        	CRUMB();
                             connections_--;
                             emitCloseIfDrained();
                         });
@@ -927,12 +968,14 @@ namespace native
                     stream_->close();
                     stream_ = nullptr;
                     process::nextTick([&](){
+                    	CRUMB();
                         emit<event::error>(Exception(rv, "Failed to initiate listening on server socket (1)."));
                     });
                     return false;
                 }
 
                 process::nextTick([&](){
+                	CRUMB();
                     emit<event::listening>();
                 });
                 return true;
@@ -960,14 +1003,16 @@ namespace native
             return x;
         }
 
-        Socket* createSocket(std::function<void(Socket*)> callback, bool allowHalfOpen=false)
+        Socket* createSocket(std::function<void(Socket*)> callback=nullptr, bool allowHalfOpen=false)
         {
             auto x = new Socket(nullptr, nullptr, allowHalfOpen);
             assert(x);
 
-            process::nextTick([=](){
-                callback(x);
-            });
+            if (callback) {
+				process::nextTick([=](){
+					callback(x);
+				});
+            }
 
             return x;
         }

@@ -8,95 +8,520 @@
 #include "net.h"
 #include "process.h"
 
+/*
+# HTTP #
+
+Sockets are created by a Server for incoming connections or by a
+ClientRequest.
+Parser factory manages pool of http_parser_context. Each Parser takes
+ownership of a Socket and begins to read and feed data to the context.
+Users of a Parser register callbacks for allocating and handling an
+IncomingMessage once headers have been received. For servers, a
+ServerRequest is allocated, for clients, a ClientResponse. Users can
+attach data event handlers to the ServerRequest or ClientResponse to
+receive post or body data respectively.
+
+ */
 namespace native
 {
-    // forward declarations
     namespace http
     {
+		// forward declarations
+    	class IncomingMessage;
+    	class OutgoingMessage;
         class ServerRequest;
         class ServerResponse;
-    }
+        class ClientRequest;
+        class ClientResponse;
 
-    namespace event
-    {
-        struct request : public util::callback_def<http::ServerRequest*, http::ServerResponse*> {};
-        struct checkContinue : public util::callback_def<http::ServerRequest*, http::ServerResponse*> {};
-        struct upgrade : public util::callback_def<http::ServerRequest*, net::Socket*, const Buffer&> {};
-    }
+        namespace event
+        {
+            struct request : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
+            struct checkContinue : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
+            struct upgrade : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
 
-    namespace http
-    {
+            struct response : public util::callback_def<native::http::ClientResponse*> {};
+            struct socket : public util::callback_def<net::Socket*> {};
+            // struct connect
+            // struct upgrade
+            // struct continue
+
+			struct finish : public util::callback_def<> {};
+        }
+
+		/**
+		 * Factory for Parser instances managing a parsing context. Allocates
+		 * a pool of parser contexts for improving performance. Parser instances
+		 * expect to process incoming messages from clients or servers,
+		 * processing outgoing messages only useful verifying output.
+		 * IncomingMessage instances are generated based on received headers
+		 * and passed on to the on_incoming callback to determine if the
+		 * body needs to be parsed. The on_incoming callback should be
+		 * registered before starting to receive a message and implements the
+		 * the logic for a handling a request/response.
+		 */
+		class Parser {
+		private:
+			/*
+			 * This is the onIncoming callback which is specified for handling
+			 * request and response IncomingMessages. This gets called from
+			 * handle_headers_complete to determine if we should skip the body
+			 * and to pass the IncomingMessage constructed from the headers,
+			 * which can in turn be passed in a request/response event so the
+			 * user can register event handlers on the IncomingMessage.
+			 */
+			typedef std::function<void(IncomingMessage*)> on_incoming_type;
+			on_incoming_type on_incoming_;
+			detail::http_parser_context context_;
+			net::Socket* socket_;
+			IncomingMessage* incoming_;
+
+			/*
+			 * This is a callback that must be registered to allow construction
+			 * of classes derived from IncomingMessage. This is necessary
+			 * because we want to emit events on the derived type. It might
+			 * be possible/better to do this another way.
+			 */
+			typedef std::function<IncomingMessage*(net::Socket*)> alloc_incoming_type;
+			alloc_incoming_type alloc_incoming_;
+
+		private:
+			Parser(http_parser_type type, net::Socket* socket)
+				: on_incoming_()
+				, context_(type)
+				, socket_(socket)
+				, incoming_(nullptr)
+				, alloc_incoming_(nullptr)
+			{
+				// wrap callbacks in closures
+				context_.on_headers_complete(
+					[this](const native::detail::http_parse_result& result){
+						on_headers_complete(result);
+					}
+				);
+				context_.on_body(
+					[this](const char* buf, size_t off, size_t len){
+						on_body(buf, off, len);
+					}
+				);
+				context_.on_message_complete(
+					[this](const native::detail::http_parse_result& result){
+						on_message_complete(result);
+					}
+				);
+				context_.on_error(
+					[this](const native::Exception& e){
+						on_error(e);
+					}
+				);
+
+				socket->on<native::event::data>([=](const Buffer& buf) {
+					CRUMB();
+						if(context_.feed_data(buf.base(), 0, buf.size()))
+						{
+							CRUMB();
+							// parse end
+							socket->pause();
+						}
+						else
+						{
+							CRUMB();
+							// more reads required: keep reading!
+						}
+				});
+
+				socket->on<native::event::end>([=](){
+					CRUMB();
+					// EOF
+					if(!context_.is_finished())
+					{
+						// HTTP request was not properly parsed.
+					}
+				});
+
+				socket->on<native::event::error>([=](const native::Exception& e){
+					CRUMB();
+				});
+
+				socket->on<native::event::close>([=](){
+					CRUMB();
+				});
+			}
+		public:
+			typedef std::shared_ptr<Parser> ptr;
+			/**
+			 * Create a parser of the specified type attached to the given socket
+			 * which invokes the given callback with an IncomingMessage instance.
+			 *
+			 * @param socket
+			 * @param type
+			 * @param callback
+			 * @return
+			 */
+			static Parser* create(
+					http_parser_type type,
+					net::Socket* socket,
+					on_incoming_type callback = nullptr)
+			{
+				CRUMB();
+				Parser* parser(new Parser(type, socket));
+
+				if (callback) parser->on_incoming(callback);
+
+				return parser;
+			}
+
+			void on_incoming(on_incoming_type callback) {
+				on_incoming_ = callback;
+			}
+
+			void alloc_incoming(alloc_incoming_type callback) {
+				alloc_incoming_ = callback;
+			}
+		private:
+			/**
+			 * Process headers and setup an IncomingMessage to pass to the
+			 * handle_incoming callback
+			 * @return
+			 */
+			int on_headers_complete(const native::detail::http_parse_result& result); // Implemented after IncomingMessage defined
+
+			int on_body(const char* buf, size_t off, size_t len) {
+				CRUMB();
+				return 0;
+			}
+
+			int on_message_complete(const native::detail::http_parse_result& result);
+
+			int on_error(const native::Exception& e) {
+				CRUMB();
+				return 0;
+			}
+		};
+
+		/**
+		 * This is the base class for incoming http messages (requests or
+		 * responses for servers or clients respectively). These will be
+		 * created by a Parser after parsing headers and will be passed to a
+		 * request/response handler for further processing and registering
+		 * event listeners. It implements the ReadableStream interface.
+		 *
+		 * Emits the following events:
+		 *   data  - when a chunk of the body is received
+		 *   end   - the body is finished and no more data events to come
+		 *   close - the connection was terminated before finishing
+		 *   error - there was an error with the connection or HTTP parsing
+		 */
+		class IncomingMessage : public EventEmitter
+		{
+		protected:
+			net::Socket* socket_;
+			int statusCode_;
+			std::string httpVersion_;
+			int httpVersionMajor_;
+			int httpVersionMinor_;
+			bool complete_;
+			detail::http_parse_result::headers_type headers_;
+			detail::http_parse_result::headers_type trailers_;
+			bool readable_;
+			bool paused_;
+			detail::http_parse_result::headers_type pendings_;
+			bool endEmitted_;
+			std::string url_;
+			http_method method_;
+
+		public:
+			IncomingMessage(net::Socket* socket)
+			: socket_(socket)
+			, statusCode_(0)
+			, httpVersion_()
+			, httpVersionMajor_(0)
+			, httpVersionMinor_(0)
+			, complete_(false)
+			, headers_()
+			, trailers_()
+			, readable_(true)
+			, paused_(false)
+			, pendings_()
+			, endEmitted_(false)
+			, url_()
+			, method_()
+			{
+				registerEvent<native::event::end>();
+			}
+
+//			IncomingMessage(const IncomingMessage& o)
+//			: socket_(o.socket_)
+//			, statusCode_(o.statusCode_)
+//			, httpVersion_(o.httpVersion_)
+//			, httpVersionMajor_(o.httpVersionMajor_)
+//			, httpVersionMinor_(o.httpVersionMinor_)
+//			, complete_(o.complete_)
+//			, headers_(o.headers_)
+//			, trailers_(o.trailers_)
+//			, readable_(o.readable_)
+//			, paused_(o.paused_)
+//			, pendings_(o.pendings_)
+//			, endEmitted_(o.endEmitted_)
+//			, url_(o.url_)
+//			, method_(o.method_)
+//			{}
+
+			// TODO: add move constructor
+
+			/*
+			 * Accessors
+			 */
+
+			net::Socket* socket() { return socket_; }
+			int statusCode() { return statusCode_; }
+			std::string httpVersion() { return httpVersion_; }
+			int httpVersionMajor() { return httpVersionMajor_; }
+			int httpVersionMinor() { return httpVersionMinor_; }
+
+			void destroy(const Exception& e) {
+				socket_->destroy(e);
+			}
+
+			// TODO: handle encoding
+			//void setEncoding();
+
+			void pause() {}
+			void resume() {}
+			void _emitPending(std::function<void()> callback) {}
+			void _emitData(const Buffer& buf) {}
+			void _emitEnd() {}
+			void _addHeaderLine(const std::string& field, const std::string& value) {}
+
+			void end() {
+				CRUMB();
+				if (haveListener<native::event::end>()) {
+					CRUMB();
+					emit<native::event::end>();
+				}
+			}
+
+		};
+
+
+		int Parser::on_headers_complete(const native::detail::http_parse_result& result) {
+			CRUMB();
+			if (!alloc_incoming_ || !on_incoming_) return 0;
+
+			incoming_ = alloc_incoming_(socket_);
+
+			on_incoming_(incoming_);
+
+			return 0;
+		}
+
+		int Parser::on_message_complete(const native::detail::http_parse_result& result) {
+			CRUMB();
+			if (incoming_) {
+				incoming_->end();
+			}
+			return 0;
+		}
+
+		/**
+		 * This is the base class for outgoing messages (responses or requests
+		 * for servers or clients respectively).
+		 * It implements the WritableStream interface
+		 *
+		 * Events emitted:
+		 * 	 close - indicates connection was terminated before calling end()
+		 */
+		class OutgoingMessage : public EventEmitter
+		{
+		protected:
+			net::Socket* socket_;
+			Buffer output_;
+			// TODO: handle output encodings
+			bool writable_;
+			bool last_;
+			bool chunkedEncoding_;
+			bool shouldKeepAlive_;
+			bool useChunkedEncodingByDefault_;
+			bool sendDate_;
+			bool hasBody_;
+			Buffer trailer_;
+			bool finished_;
+		public:
+			OutgoingMessage(net::Socket* socket_)
+				: socket_(socket_),
+				  output_(),
+				  writable_(true),
+				  last_(false),
+				  chunkedEncoding_(false),
+				  shouldKeepAlive_(true),
+				  useChunkedEncodingByDefault_(true),
+				  sendDate_(false),
+				  hasBody_(true),
+				  trailer_(),
+				  finished_(false)
+			{}
+
+			void destroy(const Exception& e) {
+				socket_->destroy(e);
+			}
+
+			// TODO: handle encoding
+			void _send(const Buffer& buf) {}
+
+			// TODO: handle encoding
+			void _writeRaw(const Buffer& buf) {}
+
+			// TODO: handle encoding
+			void _buffer(const Buffer& buf) {}
+
+			void _storeHeader(const std::string& firstLine, const detail::http_parse_result::headers_type& headers) {}
+
+			void setHeader(const std::string& name, const std::string& value) {}
+
+			std::string getHeader(const std::string& name) {
+				return "";
+			}
+
+			void removeHeader(const std::string& name) {}
+
+			detail::http_parse_result::headers_type _renderHeaders() {
+				return detail::http_parse_result::headers_type();
+			}
+
+			// TODO: handle encoding
+			void write(const Buffer& buf) {}
+
+			void addTrailers(const detail::http_parse_result::headers_type& headers) {}
+
+			virtual void _implicitHeader() {};
+
+			bool end() { return false; }
+			/**
+			 * Signal the end of the outgoing message
+			 * @param buf
+			 * @return
+			 */
+			bool end(const Buffer& buf) {
+            	CRUMB();
+				return false;
+#if 0
+				// TODO: handle encoding
+				if (finished_) { return false; }
+				if (!_header) { // headers not yet sent
+					// _storeHeader not yet called
+					_implicitHeader();
+				}
+				if (data && !_hasBody) {
+					// This type of message should not have a body
+					data.clear();
+				}
+
+				bool hot = _headerSent == false
+						&& data.size() > 0
+						&& output.size() == 0
+						&& socket_
+						&& socket_->writable()
+						&& socket_->_httpMessage == this;
+
+				if (hot) {
+					// Hot path. They're doing
+					// 	 res.writeHead()
+					//	 res.end(blah)
+					// HACKY.
+
+					if (chunkedEncoding_) {
+						// TODO: do this without stringstream
+						std::stringstream ss;
+						ss << _header << std::hex << data.size() << "\r\n"
+							<< data << "\r\n0\r\n"
+							<< _trailer << "\r\n";
+						ret - socket_->write(ss.str());
+					} else {
+						ret = socket_->write(header_ + data);
+					}
+					_headerSent = true;
+				} else if (data.size() > 0) {
+					// Normal body write
+					ret = write(data);
+				}
+
+				if (!hot) {
+					if (chunkedEncoding_) {
+						ret = _send("0\r\n" + _trailer + "\r\n");
+					} else {
+						// Force a flush, HACK.
+						ret = _send("");
+					}
+				}
+
+				_finished = true;
+				if (output.size() == 0 && socket_->_httpMessage == this) {
+					_finish();
+				}
+
+				return ret;
+#endif
+			}
+
+			void _finish() {
+			  assert(socket_);
+			  // TODO: Port DTrace
+	//			  if (this instanceof ServerResponse) {
+	//				DTRACE_HTTP_SERVER_RESPONSE(this.connection);
+	//			  } else {
+	//				assert(this instanceof ClientRequest);
+	//				DTRACE_HTTP_CLIENT_REQUEST(this, this.connection);
+	//			  }
+			  emit<event::finish>();
+			}
+
+			void _flush() {}
+		};
+
         class Server;
 
         typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
 
-        class ServerRequest : public EventEmitter
+
+        class ServerRequest : public IncomingMessage
         {
             friend class Server;
 
         protected:
-            ServerRequest(net::Socket* socket, const detail::http_parse_result* parse_result)
-                : EventEmitter()
-                , socket_(socket)
-                , req_info_(*parse_result)
-                , trailers_()
+            ServerRequest(const IncomingMessage& msg)
+                : IncomingMessage(msg) // TODO: use move constructor
             {
+            	CRUMB();
                 assert(socket_);
 
-                registerEvent<event::data>();
-                registerEvent<event::end>();
-                registerEvent<event::close>();
-
-                socket_->on<event::data>([this](const Buffer& buffer){ emit<event::data>(buffer); });
-                socket_->on<event::end>([this](){ emit<event::end>(); });
-                socket_->on<event::close>([this](){ emit<event::close>(); });
+//                registerEvent<native::event::data>();
+//                registerEvent<native::event::end>();
+//                registerEvent<native::event::close>();
+//
+//                socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
+//                socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
+//                socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
             }
 
             virtual ~ServerRequest()
             {}
-
-        public:
-            const std::string& schema() const { return req_info_.schema(); }
-            const std::string& host() const { return req_info_.host(); }
-            int port() const { return req_info_.port(); }
-            const std::string& path() const { return req_info_.path(); }
-            const std::string& query() const { return req_info_.query(); }
-            const std::string& fragment() const { return req_info_.fragment(); }
-            const headers_type& headers() const { return req_info_.headers(); }
-            const std::string& method() const { return req_info_.method(); }
-            const std::string& http_version() const { return req_info_.http_version(); }
-            bool upgrade() const { return req_info_.upgrade(); }
-
-            const headers_type& trailers() const { return trailers_; } // only populated after 'end' event
-
-            //void setEncoding(const std::string& encoding);
-            //void pause();
-            //void resume();
-
-            net::Socket* connection() { return nullptr; }
-
-        private:
-            net::Socket* socket_;
-            detail::http_parse_result req_info_;
-            headers_type trailers_;
         };
 
-        class ServerResponse : public EventEmitter
+        class ServerResponse : public OutgoingMessage
         {
             friend class Server;
 
         protected:
             ServerResponse(net::Socket* socket)
-                : EventEmitter()
-                , socket_(socket)
-                , headers_()
+                : OutgoingMessage(socket)
             {
+            	CRUMB();
                 assert(socket_);
 
-                registerEvent<event::close>();
-                registerEvent<event::error>();
+                registerEvent<native::event::close>();
+                registerEvent<native::event::error>();
 
-                socket_->on<event::close>([this](){ emit<event::close>(); });
+                socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
             }
 
             virtual ~ServerResponse()
@@ -116,6 +541,7 @@ namespace native
 
             void write(const Buffer& data)
             {
+            	CRUMB();
                 socket_->write(data);
             }
 
@@ -123,21 +549,20 @@ namespace native
 
             void end(const Buffer& data)
             {
+            	CRUMB();
                 assert(socket_);
 
                 if(socket_->end(data))
                 {
+                	CRUMB();
                     socket_ = nullptr;
                 }
                 else
                 {
-                    emit<event::error>(Exception("Failed to close the socket."));
+                	CRUMB();
+                    emit<native::event::error>(Exception("Failed to close the socket."));
                 }
             }
-
-        private:
-            net::Socket* socket_;
-            headers_type headers_;
         };
 
         class Server : public net::Server
@@ -146,33 +571,54 @@ namespace native
             Server()
                 : net::Server()
             {
+            	CRUMB();
                 registerEvent<event::request>();
-                registerEvent<event::connection>();
-                registerEvent<event::close>();
                 registerEvent<event::checkContinue>();
                 registerEvent<event::upgrade>();
-                registerEvent<event::error>();
+                registerEvent<native::event::connection>();
+                registerEvent<native::event::close>();
+                registerEvent<native::event::error>();
 
-                on<event::connection>([&](net::Socket* socket){
+                // Register connection listener
+                on<native::event::connection>([&](net::Socket* socket){
+                	CRUMB();
                     assert(socket);
 
-                    detail::parse_http_request(socket->stream(), [=](const detail::http_parse_result* parse_result, detail::resval rv){
-                        if(!rv)
-                        {
-                            emit<event::error>(rv);
-                        }
-                        else
-                        {
-                            assert(parse_result);
+                    // Create a Parser to handle incoming message
+                    // TODO: check if allocated Parser are leaking
+                    Parser* parser(Parser::create(HTTP_REQUEST, socket));
 
-                            auto server_req = new ServerRequest(socket, parse_result);
-                            assert(server_req);
+                    // The parser will start reading from the socket and parsing data
 
-                            auto server_res = new ServerResponse(socket);
-                            assert(server_res);
+                    parser->alloc_incoming([](net::Socket* socket){
+                    	return new ServerRequest(socket);
+                    });
 
-                            emit<event::request>(server_req, server_res);
-                        }
+                    // After receiving headers it will create an IncomingMessage and invoke this callback
+                    parser->on_incoming([=](IncomingMessage* msg) {
+                    	CRUMB();
+                    	// Create ServerRequest from IncomingMessage
+                    	ServerRequest* req = static_cast<ServerRequest*>(msg);
+
+                    	assert(req);
+
+                    	// Do early header processing and decide whether body should be received
+
+                    	// Request isn't finished yet, when it ends, emit request event
+                    	req->on<native::event::end>([=](){
+                    		CRUMB();
+                    		// Create ServerResponse
+                    		ServerResponse* res = new ServerResponse(msg->socket());
+                    		assert(res);
+                    		// Pass request and response to listener
+                    		emit<event::request>(req, res);
+
+                        	// TODO: handle cleanup of ServerRequest better
+//                    		delete req;
+                    	});
+
+//                    	return 0; // Don't skip body
+//                    	return 1; // Skip body
                     });
                 });
             }
@@ -186,14 +632,221 @@ namespace native
             //void listen(path, callback);
         };
 
-        Server* createServer(std::function<void(Server*)> callback)
+        class ClientResponse : public IncomingMessage
         {
+        public:
+        	ClientResponse(net::Socket* socket)
+        		: IncomingMessage(socket)
+        	{
+            	CRUMB();
+        		assert(socket);
+        		registerEvent<native::event::data>();
+        		registerEvent<native::event::end>();
+        		registerEvent<native::event::close>();
+        	}
+        };
+
+        class ClientRequest : public OutgoingMessage
+        {
+            typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
+
+        private:
+        	http_method method_;
+        	headers_type headers_;
+        	std::string path_;
+
+        public:
+        	ClientRequest(detail::url_obj url, std::function<void(ClientResponse*)> callback = nullptr)
+        		: OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_()
+        	{
+            	CRUMB();
+        		registerEvent<http::event::socket>();
+        		registerEvent<http::event::response>();
+        		registerEvent<native::event::error>();
+//        		registerEvent<event::connect>();
+//        		registerEvent<event::upgrade>();
+//        		registerEvent<event::continue>();
+
+        		int port = url.has_port() ? url.port() : 80;
+        		std::string host = url.has_host() ? url.host() : "127.0.0.1"; // "localhost"; // TODO: resolve hostname
+        		path_ = url.has_path() ? url.path() : "/";
+
+        		if (callback) {
+					once<event::response>(callback);
+        		}
+
+        		// TODO: set headers
+        		// TODO: set default host header
+        		// TODO: set authorization header if requested
+        		// TODO: disable chunk encoding by defauult based on method (GET, HEAD, CONNECT)
+        		// TODO: setup request header based on method and expect header
+        		// Setup socket
+        		// TODO: handle unix socket
+        		// TODO: utilize user agent if provided
+        		// TODO: utilize user connection method if provided
+        		// Connect socket
+        		socket_->connect(host, port);
+        		// Setup socket
+        		init_socket();
+
+        		_deferToConnect([this](){
+                	CRUMB();
+        			_flush(); // flush output once connected
+        		});
+        	}
+        	virtual ~ClientRequest() {}
+
+        	void abort() {
+            	CRUMB();
+        		if (socket_) { // in-progress
+        			socket_->destroy();
+        		} else {
+        			// not yet assigned a socket
+        			// TODO: remove from pending requests
+        			_deferToConnect([this](){
+                    	CRUMB();
+        				socket_->destroy();
+        			});
+        		}
+        	}
+        	void setTimeout(int64_t timeout, std::function<void()> callback=nullptr) {}
+        	void setNoDelay(bool noDelay) {}
+        	void setSocketKeepAlive(bool enable, int64_t initialDelay) {}
+
+        private:
+        	void _implicitHeader() {
+            	CRUMB();
+        		_storeHeader(
+        				std::string(http_method_str(method_)) + " " + path_ + " HTTP/1.1\r\n",
+        				_renderHeaders());
+        	}
+
+        	void _deferToConnect(std::function<void()> callback) {
+            	CRUMB();
+        		// if no socket then setup socket event handler
+        		// if not yet connected setup connect event handler
+        		// otherwise already connected so run callback
+        	}
+
+        	void init_socket() {
+            	CRUMB();
+                process::nextTick([this](){
+                	// TODO: check if allocated Parser is leaking
+					Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
+
+                    // The parser will start reading from the socket and parsing data
+
+					// Setup parser for handling response
+                    parser->alloc_incoming([](net::Socket* socket){
+                    	return new ClientResponse(socket);
+                    });
+
+                    // TODO: set parser max. headers
+					// TODO: Setup drain event
+					// TODO: remove drain before setting it
+					socket_->on<native::event::connect>([this](){
+						this->on_socket_connect();
+					});
+					socket_->on<native::event::drain>(on_socket_drain);
+					socket_->on<native::event::error>(on_socket_error);
+					socket_->on<native::event::data>([this](const Buffer& buf){
+						this->on_socket_data(buf);
+					});
+					socket_->on<native::event::end>(on_socket_end);
+					socket_->on<native::event::close>(on_socket_close);
+
+					// set on incoming callback on parser
+					parser->on_incoming([this](IncomingMessage* res){
+						this->on_incoming_message(res);
+					});
+
+					// Emit socket event
+					emit<http::event::socket>(socket_);
+                });
+        	}
+
+        	void on_incoming_message(IncomingMessage* msg) {
+        		CRUMB();
+        		ClientResponse* res = static_cast<ClientResponse*>(msg);
+
+        		// if already created response then server sent double response
+        		// TODO: destroy socket on double response
+//        		this->response = res;
+
+        		// TODO: handle response to CONNECT as UPGRADE
+
+        		// TODO: handle response to HEAD request
+
+        		// TODO: handle CONTINUE
+
+        		// TODO: handle keep-alive
+
+        		// Emit response event
+        		emit<http::event::response>(res);
+        		res->on<native::event::end>([this](){
+        			this->on_response_end();
+        		});
+        	}
+
+        	void on_response_end() {
+        		// TODO: handle keep-alive after response end
+        	}
+
+        	void on_socket_connect() {
+            	CRUMB();
+                assert(socket_);
+        	}
+
+        	static void on_socket_drain() {
+            	CRUMB();
+        	}
+
+        	static void on_socket_error(const Exception& e) {
+            	CRUMB();
+        	}
+
+        	void on_socket_data(const Buffer& buf) {
+            	CRUMB();
+        	}
+
+        	static void on_socket_end() {
+            	CRUMB();
+        	}
+
+        	static void on_socket_close() {
+            	CRUMB();
+        	}
+        };
+
+        Server* createServer()
+        {
+        	CRUMB();
             auto server = new Server();
 
-            assert(callback);
-            process::nextTick([=](){ callback(server); });
-
             return server;
+        }
+
+        ClientRequest* request(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
+        {
+        	CRUMB();
+        	detail::url_obj url;
+        	url.parse(url_string.c_str(), url_string.length());
+
+        	if (url.schema() != "http") {
+        		throw Exception("Protocol: " + url.schema() + " not supported.");
+        	}
+
+        	ClientRequest* req = new ClientRequest(url, callback);
+
+        	return req;
+        }
+
+        ClientRequest* get(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
+        {
+        	CRUMB();
+        	ClientRequest* req = request(url_string, callback);
+        	req->end();
+        	return req;
         }
     }
 }

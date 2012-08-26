@@ -34,30 +34,48 @@
         'deps/http-parser/http_parser.gyp:http_parser',
       ],
     },
+    # {
+    #   'target_name': 'shell',
+    #   'type': 'executable',
+    #   'sources': [ 'examples/shell.cc' ],
+    #   'dependencies': [ 'native' ],
+    # },
+    # {
+    #   'target_name': 'tty',
+    #   'type': 'executable',
+    #   'sources': [ 'examples/tty.cc' ],
+    #   'dependencies': [ 'native' ],
+    # },
     {
-      'target_name': 'timers',
+      'target_name': 'webclient',
       'type': 'executable',
-      'sources': ['examples/timers.cc'],
-      'dependencies': ['native'],
+      'sources': [ 'examples/webclient.cc' ],
+      'dependencies': [ 'native' ]
     },
+    # {
+    #   'target_name': 'timers',
+    #   'type': 'executable',
+    #   'sources': ['examples/timers.cc'],
+    #   'dependencies': ['native'],
+    # },
     {
       'target_name': 'webserver',
       'type': 'executable',
       'sources': [ 'examples/webserver.cpp' ],
       'dependencies': [ 'native' ]
     },
-    {
-      'target_name': 'echo',
-      'type': 'executable',
-      'sources': [ 'examples/echo.cpp' ],
-      'dependencies': [ 'native' ]
-    },
-    {
-      'target_name': 'socket',
-      'type': 'executable',
-      'sources': ['examples/socket.cc'],
-      'dependencies': ['native'],
-    },
+    # {
+    #   'target_name': 'echo',
+    #   'type': 'executable',
+    #   'sources': [ 'examples/echo.cpp' ],
+    #   'dependencies': [ 'native' ]
+    # },
+    # {
+    #   'target_name': 'socket',
+    #   'type': 'executable',
+    #   'sources': ['examples/socket.cc'],
+    #   'dependencies': ['native'],
+    # },
   ] # end targets
 }
 
