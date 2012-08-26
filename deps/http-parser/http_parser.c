@@ -1829,7 +1829,7 @@ size_t http_parser_execute (http_parser *parser,
         break;
 
       default:
-        assert(0 && "unhandled state");
+//        assert(0 && "unhandled state");
         SET_ERRNO(HPE_INVALID_INTERNAL_STATE);
         goto error;
     }
