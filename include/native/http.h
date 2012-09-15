@@ -21,6 +21,18 @@ ServerRequest is allocated, for clients, a ClientResponse. Users can
 attach data event handlers to the ServerRequest or ClientResponse to
 receive post or body data respectively.
 
+Since HTTP request/response are syntactically similar, the Message class
+represents common features of both. It holds a status line, sets of leading
+and trailing headers, and an optional body. A request/response flag is set by
+Message subclasses to parse status line accordingly.
+IncomingMessage and OutgoingMessage descend from Message and encapsulate the
+differences between incoming and outgoing message traffic, independent of the
+type of message (incoming request, incoming response, outgoing request,
+outgoing response).
+IncomingMessage/OutgoingMessage create request/response Parser to handle
+data read from Socket. Message defines callbacks registered on Parser to handle
+status line, headers, etc. as they are parsed.
+
  */
 namespace native
 {
@@ -95,7 +107,7 @@ namespace native
 			{
 				// wrap callbacks in closures
 				context_.on_headers_complete(
-					[this](const native::detail::http_parse_result& result){
+					[this](const native::detail::http_message& result){
 						on_headers_complete(result);
 					}
 				);
@@ -105,7 +117,7 @@ namespace native
 					}
 				);
 				context_.on_message_complete(
-					[this](const native::detail::http_parse_result& result){
+					[this](const native::detail::http_message& result){
 						on_message_complete(result);
 					}
 				);
@@ -184,19 +196,60 @@ namespace native
 			 * handle_incoming callback
 			 * @return
 			 */
-			int on_headers_complete(const native::detail::http_parse_result& result); // Implemented after IncomingMessage defined
+			int on_headers_complete(const native::detail::http_message& result); // Implemented after IncomingMessage defined
 
 			int on_body(const char* buf, size_t off, size_t len) {
 				CRUMB();
 				return 0;
 			}
 
-			int on_message_complete(const native::detail::http_parse_result& result);
+			int on_message_complete(const native::detail::http_message& result);
 
 			int on_error(const native::Exception& e) {
 				CRUMB();
 				return 0;
 			}
+		};
+
+		/**
+		 * Message is the base class for HTTP request and response messages.
+		 *
+		 * A Message
+		 *
+		 * Messages are associated with a Parser and registers callbacks to
+		 * build the message as it is parsed. Messages also emit events
+		 * common to incoming/outgoing requests/responses.
+		 */
+		class Message : public EventEmitter
+		{
+		private:
+
+			/**
+			 * Prepare headers to be sent over the wire.
+			 * @return
+			 */
+			Buffer renderHeaders();
+
+			/**
+			 * Prepare trailers to be sent over the wire.
+			 * @return
+			 */
+			Buffer renderTrailers();
+
+			/**
+			 * Append a chunk of data to the body.
+			 *
+			 * IncomingMessage and OutgoingMessage override this method to
+			 * handle chunked transfers properly. When receiving a body this
+			 * is called once for normal transfers and multiple times for
+			 * chunked transfers. When sending a body this may be called
+			 * multiple times until complete, with normal transfer the entire
+			 * body is sent at once, with chunked transfers a chunk may be sent
+			 * after each append.
+			 *
+			 * @param buf
+			 */
+			void appendBody(const Buffer& buf);
 		};
 
 		/**
@@ -221,11 +274,11 @@ namespace native
 			int httpVersionMajor_;
 			int httpVersionMinor_;
 			bool complete_;
-			detail::http_parse_result::headers_type headers_;
-			detail::http_parse_result::headers_type trailers_;
+			detail::http_message::headers_type headers_;
+			detail::http_message::headers_type trailers_;
 			bool readable_;
 			bool paused_;
-			detail::http_parse_result::headers_type pendings_;
+			detail::http_message::headers_type pendings_;
 			bool endEmitted_;
 			std::string url_;
 			http_method method_;
@@ -304,7 +357,7 @@ namespace native
 		};
 
 
-		int Parser::on_headers_complete(const native::detail::http_parse_result& result) {
+		int Parser::on_headers_complete(const native::detail::http_message& result) {
 			CRUMB();
 			if (!alloc_incoming_ || !on_incoming_) return 0;
 
@@ -315,7 +368,7 @@ namespace native
 			return 0;
 		}
 
-		int Parser::on_message_complete(const native::detail::http_parse_result& result) {
+		int Parser::on_message_complete(const native::detail::http_message& result) {
 			CRUMB();
 			if (incoming_) {
 				incoming_->end();
@@ -374,7 +427,7 @@ namespace native
 			// TODO: handle encoding
 			void _buffer(const Buffer& buf) {}
 
-			void _storeHeader(const std::string& firstLine, const detail::http_parse_result::headers_type& headers) {}
+			void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {}
 
 			void setHeader(const std::string& name, const std::string& value) {}
 
@@ -384,14 +437,14 @@ namespace native
 
 			void removeHeader(const std::string& name) {}
 
-			detail::http_parse_result::headers_type _renderHeaders() {
-				return detail::http_parse_result::headers_type();
+			detail::http_message::headers_type _renderHeaders() {
+				return detail::http_message::headers_type();
 			}
 
 			// TODO: handle encoding
 			void write(const Buffer& buf) {}
 
-			void addTrailers(const detail::http_parse_result::headers_type& headers) {}
+			void addTrailers(const detail::http_message::headers_type& headers) {}
 
 			virtual void _implicitHeader() {};
 
