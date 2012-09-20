@@ -61,7 +61,7 @@
     {
       'target_name': 'webserver',
       'type': 'executable',
-      'sources': [ 'examples/webserver.cpp' ],
+      'sources': [ 'examples/webserver.cc' ],
       'dependencies': [ 'native' ]
     },
     # {
