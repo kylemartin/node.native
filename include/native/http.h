@@ -62,12 +62,12 @@ namespace native
         }
 
 		/**
-		 * Factory for Parser instances managing a parsing context. Allocates
-		 * a pool of parser contexts for improving performance. Parser instances
-		 * expect to process incoming messages from clients or servers,
-		 * processing outgoing messages only useful verifying output.
-		 * IncomingMessage instances are generated based on received headers
-		 * and passed on to the on_incoming callback to determine if the
+		 * Factory for Parser instances managing a parsing context.
+		 *
+		 * Allocates a pool of parser contexts for improving performance.
+		 * Parser instances expect to process incoming messages from clients
+		 * or servers. IncomingMessage instances are generated based on received
+		 * headers and passed on to the on_incoming callback to determine if the
 		 * body needs to be parsed. The on_incoming callback should be
 		 * registered before starting to receive a message and implements the
 		 * the logic for a handling a request/response.
@@ -77,7 +77,7 @@ namespace native
 			/*
 			 * This is the onIncoming callback which is specified for handling
 			 * request and response IncomingMessages. This gets called from
-			 * handle_headers_complete to determine if we should skip the body
+			 * on_handle_headers_complete to determine if we should skip the body
 			 * and to pass the IncomingMessage constructed from the headers,
 			 * which can in turn be passed in a request/response event so the
 			 * user can register event handlers on the IncomingMessage.
@@ -212,47 +212,6 @@ namespace native
 		};
 
 		/**
-		 * Message is the base class for HTTP request and response messages.
-		 *
-		 * A Message
-		 *
-		 * Messages are associated with a Parser and registers callbacks to
-		 * build the message as it is parsed. Messages also emit events
-		 * common to incoming/outgoing requests/responses.
-		 */
-		class Message : public EventEmitter
-		{
-		private:
-
-			/**
-			 * Prepare headers to be sent over the wire.
-			 * @return
-			 */
-			Buffer renderHeaders();
-
-			/**
-			 * Prepare trailers to be sent over the wire.
-			 * @return
-			 */
-			Buffer renderTrailers();
-
-			/**
-			 * Append a chunk of data to the body.
-			 *
-			 * IncomingMessage and OutgoingMessage override this method to
-			 * handle chunked transfers properly. When receiving a body this
-			 * is called once for normal transfers and multiple times for
-			 * chunked transfers. When sending a body this may be called
-			 * multiple times until complete, with normal transfer the entire
-			 * body is sent at once, with chunked transfers a chunk may be sent
-			 * after each append.
-			 *
-			 * @param buf
-			 */
-			void appendBody(const Buffer& buf);
-		};
-
-		/**
 		 * This is the base class for incoming http messages (requests or
 		 * responses for servers or clients respectively). These will be
 		 * created by a Parser after parsing headers and will be passed to a
@@ -269,36 +228,22 @@ namespace native
 		{
 		protected:
 			net::Socket* socket_;
-			int statusCode_;
-			std::string httpVersion_;
-			int httpVersionMajor_;
-			int httpVersionMinor_;
 			bool complete_;
-			detail::http_message::headers_type headers_;
-			detail::http_message::headers_type trailers_;
 			bool readable_;
 			bool paused_;
 			detail::http_message::headers_type pendings_;
 			bool endEmitted_;
-			std::string url_;
-			http_method method_;
+			detail::http_message message_;
 
 		public:
 			IncomingMessage(net::Socket* socket)
 			: socket_(socket)
-			, statusCode_(0)
-			, httpVersion_()
-			, httpVersionMajor_(0)
-			, httpVersionMinor_(0)
 			, complete_(false)
-			, headers_()
-			, trailers_()
 			, readable_(true)
 			, paused_(false)
 			, pendings_()
 			, endEmitted_(false)
-			, url_()
-			, method_()
+			, message_()
 			{
 				registerEvent<native::event::end>();
 			}
@@ -327,10 +272,10 @@ namespace native
 			 */
 
 			net::Socket* socket() { return socket_; }
-			int statusCode() { return statusCode_; }
-			std::string httpVersion() { return httpVersion_; }
-			int httpVersionMajor() { return httpVersionMajor_; }
-			int httpVersionMinor() { return httpVersionMinor_; }
+			int statusCode() { return message_.status(); }
+			std::string httpVersion() { return message_.version_string(); }
+			int httpVersionMajor() { return message_.version_major(); }
+			int httpVersionMinor() { return message_.version_minor(); }
 
 			void destroy(const Exception& e) {
 				socket_->destroy(e);
@@ -393,12 +338,12 @@ namespace native
 			bool writable_;
 			bool last_;
 			bool chunkedEncoding_;
-			bool shouldKeepAlive_;
 			bool useChunkedEncodingByDefault_;
 			bool sendDate_;
 			bool hasBody_;
 			Buffer trailer_;
 			bool finished_;
+			detail::http_message message_;
 		public:
 			OutgoingMessage(net::Socket* socket_)
 				: socket_(socket_),
@@ -406,12 +351,12 @@ namespace native
 				  writable_(true),
 				  last_(false),
 				  chunkedEncoding_(false),
-				  shouldKeepAlive_(true),
 				  useChunkedEncodingByDefault_(true),
 				  sendDate_(false),
 				  hasBody_(true),
 				  trailer_(),
-				  finished_(false)
+				  finished_(false),
+				  message_()
 			{}
 
 			void destroy(const Exception& e) {

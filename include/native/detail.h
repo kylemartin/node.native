@@ -11,5 +11,6 @@
 #include "detail/tcp.h"
 #include "detail/node.h"
 #include "detail/tty.h"
+#include "detail/buffers.h"
 
 #endif

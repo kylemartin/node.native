@@ -5,6 +5,7 @@
 #include "base.h"
 #include "stream.h"
 #include "utility.h"
+#include "buffers.h"
 
 namespace native
 {
@@ -105,8 +106,9 @@ namespace native
          */
 		class http_message
         {
-        private:
+		public:
             typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
+        private:
 
             // Common parameters
             http_version version_;
@@ -135,7 +137,7 @@ namespace native
             	, url_()
             	, status_(0)
                 , upgrade_(false)
-            	, should_keep_alive_(false)
+            	, should_keep_alive_(true)
             	, body_()
             {}
 
@@ -184,7 +186,7 @@ namespace native
             	headers_type::iterator it = headers_.find(name);
             	if (it == headers_.end()) {
             		// TODO: throw proper error
-            		throw Exception("header not found");
+//            		throw Exception("header not found");
             	}
 				return it->second;
             }
@@ -197,7 +199,7 @@ namespace native
             	headers_type::iterator it = trailers_.find(name);
             	if (it == trailers_.end()) {
             		// TODO: throw proper error
-            		throw Exception("header not found");
+//            		throw Exception("header not found");
             	}
 				return it->second;
             }
@@ -219,6 +221,37 @@ namespace native
 				return true; // Valid version major/minor
 			}
 
+	        int version_major() {
+	        	switch(version_) {
+	        	case HTTP_1_0:
+	        	case HTTP_1_1:
+	        		return 1;
+	        	default:
+	        		return -1;
+	        	}
+	        }
+
+	        int version_minor() {
+	        	switch(version_) {
+	        	case HTTP_1_0:
+	        		return 0;
+	        	case HTTP_1_1:
+	        		return 1;
+	        	default:
+	        		return -1;
+	        	}
+	        }
+
+	        std::string version_string() {
+	        	switch(version_) {
+	        	case HTTP_1_0:
+	        		return "HTTP/1.0";
+	        	case HTTP_1_1:
+	        		return "HTTP/1.1";
+	        	default:
+	        		return "";
+	        	}
+	        }
 
             const url_obj& url() const { return url_; }
             bool url(const std::string& u, bool is_connect=false) {
@@ -245,6 +278,33 @@ namespace native
 
             const Buffer& body() { return body_; }
             void body(const Buffer& b) { body_ = b; }
+
+			/**
+			 * Prepare headers to be sent over the wire.
+			 * @return
+			 */
+			Buffer renderHeaders();
+
+			/**
+			 * Prepare trailers to be sent over the wire.
+			 * @return
+			 */
+			Buffer renderTrailers();
+
+			/**
+			 * Append a chunk of data to the body.
+			 *
+			 * IncomingMessage and OutgoingMessage override this method to
+			 * handle chunked transfers properly. When receiving a body this
+			 * is called once for normal transfers and multiple times for
+			 * chunked transfers. When sending a body this may be called
+			 * multiple times until complete, with normal transfer the entire
+			 * body is sent at once, with chunked transfers a chunk may be sent
+			 * after each append.
+			 *
+			 * @param buf
+			 */
+			void appendBody(const Buffer& buf);
         };
 
         /**
@@ -282,7 +342,7 @@ namespace native
             http_parser_context(http_parser_type parser_type)
                 : parser_()
                 , settings_()
-                , message_(parser_type)
+                , message_()
                 , was_header_value_(true)
                 , last_header_field_()
                 , last_header_value_()
@@ -404,8 +464,8 @@ namespace native
 					// get host and port info from header entry "Host"
 					std::string host("");
 					int port = 80; // default port
-					auto x = message_.headers_.find("host");
-					if(x != message_.headers_.end())
+					auto x = message_.headers().find("host");
+					if(x != message_.headers().end())
 					{
 						auto s = x->second;
 						auto colon = s.find_last_of(':');
@@ -429,7 +489,7 @@ namespace native
 				 */
 
 				// HTTP method
-				message_.method_ = http_method_str(static_cast<http_method>(parser_.method));
+				message_.method(static_cast<http_method>(parser_.method));
 
 				/*
 				 * Headers

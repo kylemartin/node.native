@@ -10,6 +10,7 @@
 
 namespace native
 {
+	using detail::Buffer;
     /**
      *  Network classes and functions are defined under native::net namespace.
      */

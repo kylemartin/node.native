@@ -7,7 +7,7 @@ namespace native
 {
     class Exception;
     class Stream;
-    class Buffer;
+
     namespace net { class Socket; }
 
     /**
@@ -42,7 +42,7 @@ namespace native
          *
          *  @param buffer           The Buffer object that contains the data.
          */
-        struct data : public util::callback_def<const Buffer&> {};
+        struct data : public util::callback_def<const detail::Buffer&> {};
         /**
          *  @brief 'end' event.
          *

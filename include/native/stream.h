@@ -4,11 +4,12 @@
 #include "base.h"
 #include "detail.h"
 #include "error.h"
-#include "buffers.h"
 #include "events.h"
 
 namespace native
 {
+	using detail::Buffer;
+
     class Stream : public EventEmitter
     {
     public:
