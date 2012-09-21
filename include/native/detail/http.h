@@ -459,11 +459,11 @@ namespace native
 				 * Response
 				 */
 
+				std::string host("");
+				int port = 80; // default port
 				// HTTP 1.1 requires "Host" header
 				if (message_.version() == HTTP_1_1) {
 					// get host and port info from header entry "Host"
-					std::string host("");
-					int port = 80; // default port
 					auto x = message_.headers().find("host");
 					if(x != message_.headers().end())
 					{

@@ -45,21 +45,27 @@ namespace native
         class ServerResponse;
         class ClientRequest;
         class ClientResponse;
+    }
 
-        namespace event
-        {
+	namespace event { namespace http {
+		namespace client {
+			struct connect : public util::callback_def<native::http::ClientResponse*, net::Socket*, const Buffer&> {};
+			struct upgrade : public util::callback_def<native::http::ClientResponse*, net::Socket*, const Buffer&> {};
+            struct response : public util::callback_def<native::http::ClientResponse*> {};
+		}
+
+		namespace server {
+			struct connect : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
+			struct upgrade : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
             struct request : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
             struct checkContinue : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
-            struct upgrade : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
+		}
+		struct socket : public util::callback_def<net::Socket*> {};
+		struct Continue : public util::callback_def<>{};
+		struct finish : public util::callback_def<> {};
+	}}
 
-            struct response : public util::callback_def<native::http::ClientResponse*> {};
-            struct socket : public util::callback_def<net::Socket*> {};
-            // struct connect
-            // struct upgrade
-            // struct continue
-
-			struct finish : public util::callback_def<> {};
-        }
+    namespace http {
 
 		/**
 		 * Factory for Parser instances managing a parsing context.
@@ -470,7 +476,7 @@ namespace native
 	//				assert(this instanceof ClientRequest);
 	//				DTRACE_HTTP_CLIENT_REQUEST(this, this.connection);
 	//			  }
-			  emit<event::finish>();
+			  emit<native::event::http::finish>();
 			}
 
 			void _flush() {}
@@ -570,9 +576,9 @@ namespace native
                 : net::Server()
             {
             	CRUMB();
-                registerEvent<event::request>();
-                registerEvent<event::checkContinue>();
-                registerEvent<event::upgrade>();
+                registerEvent<native::event::http::server::request>();
+                registerEvent<native::event::http::server::checkContinue>();
+                registerEvent<native::event::http::server::upgrade>();
                 registerEvent<native::event::connection>();
                 registerEvent<native::event::close>();
                 registerEvent<native::event::error>();
@@ -609,7 +615,7 @@ namespace native
                     		ServerResponse* res = new ServerResponse(msg->socket());
                     		assert(res);
                     		// Pass request and response to listener
-                    		emit<event::request>(req, res);
+                    		emit<native::event::http::server::request>(req, res);
 
                         	// TODO: handle cleanup of ServerRequest better
 //                    		delete req;
@@ -658,8 +664,8 @@ namespace native
         		: OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_()
         	{
             	CRUMB();
-        		registerEvent<http::event::socket>();
-        		registerEvent<http::event::response>();
+        		registerEvent<native::event::http::socket>();
+        		registerEvent<native::event::http::client::response>();
         		registerEvent<native::event::error>();
 //        		registerEvent<event::connect>();
 //        		registerEvent<event::upgrade>();
@@ -670,7 +676,7 @@ namespace native
         		path_ = url.has_path() ? url.path() : "/";
 
         		if (callback) {
-					once<event::response>(callback);
+					once<native::event::http::client::response>(callback);
         		}
 
         		// TODO: set headers
@@ -759,7 +765,7 @@ namespace native
 					});
 
 					// Emit socket event
-					emit<http::event::socket>(socket_);
+					emit<native::event::http::socket>(socket_);
                 });
         	}
 
@@ -780,7 +786,7 @@ namespace native
         		// TODO: handle keep-alive
 
         		// Emit response event
-        		emit<http::event::response>(res);
+        		emit<native::event::http::client::response>(res);
         		res->on<native::event::end>([this](){
         			this->on_response_end();
         		});

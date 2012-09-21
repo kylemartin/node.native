@@ -10,6 +10,10 @@ server.on('request', function (req, res) {
 	console.log('VERSION: ' + req.httpVersion);
 	console.log('HEADERS: ' + JSON.stringify(req.headers));
 
+	/**
+	 * ReadableStream Interface Events
+	 */
+	
 	req.on('data', function(chunk) {
 		console.log('[req] on data: ' + chunk);
 	});
@@ -26,6 +30,10 @@ server.on('request', function (req, res) {
 	req.on('close', function() {
 		console.log('[req] on close');
 	});
+
+	/**
+	 * WritableStream Interface Events
+	 */
 
 	res.on('drain', function() {
 		console.log('[res] on drain');
@@ -46,6 +54,10 @@ server.on('request', function (req, res) {
 	res.writeHead(200, {'Content-Type': 'text/plain'});
 	res.end('Hello World\n');
 });
+
+/**
+ * Server Interface Events
+ */
 
 server.on('connection', function(socket) {
 	console.log('[server] on connection');

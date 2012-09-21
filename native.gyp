@@ -52,30 +52,30 @@
       'sources': [ 'examples/webclient.cc' ],
       'dependencies': [ 'native' ]
     },
-    # {
-    #   'target_name': 'timers',
-    #   'type': 'executable',
-    #   'sources': ['examples/timers.cc'],
-    #   'dependencies': ['native'],
-    # },
+    {
+      'target_name': 'timers',
+      'type': 'executable',
+      'sources': ['examples/timers.cc'],
+      'dependencies': ['native'],
+    },
     {
       'target_name': 'webserver',
       'type': 'executable',
       'sources': [ 'examples/webserver.cc' ],
       'dependencies': [ 'native' ]
     },
-    # {
-    #   'target_name': 'echo',
-    #   'type': 'executable',
-    #   'sources': [ 'examples/echo.cpp' ],
-    #   'dependencies': [ 'native' ]
-    # },
-    # {
-    #   'target_name': 'socket',
-    #   'type': 'executable',
-    #   'sources': ['examples/socket.cc'],
-    #   'dependencies': ['native'],
-    # },
+    {
+      'target_name': 'echo',
+      'type': 'executable',
+      'sources': [ 'examples/echo.cc' ],
+      'dependencies': [ 'native' ]
+    },
+    {
+      'target_name': 'socket',
+      'type': 'executable',
+      'sources': ['examples/socket.cc'],
+      'dependencies': ['native'],
+    },
   ] # end targets
 }
 
