@@ -17,7 +17,7 @@ native: config.gypi
 native_g: config.gypi
 	$(MAKE) -C out BUILDTYPE=Debug
 	
-config.gypi: configure native.gyp common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp
+config.gypi: configure native.gyp common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp test/test.gyp
 	./configure
 
 out/Makefile: config.gypi 
@@ -32,7 +32,25 @@ distclean:
 	-rm -f config.gypi
 	-rm -f config.mk
 
+all_tests := http
+
+# ifeq ($(BUILDTYPE),Release)
+# test: native
+# 	@tools/test-wrapper-gypbuild.py -j16 --outdir=out --mode=release --arch=x64
+# else
+# test: native_g
+# 	@tools/test-wrapper-gypbuild.py -j16 --outdir=out --mode=debug --arch=x64
+# endif
+
+ifeq ($(BUILDTYPE),Release)
+test: native
+	$(PYTHON) tools/test.py --mode=release $(all_tests)
+else
+test: native_g
+	$(PYTHON) tools/test.py --mode=debug $(all_tests)
+endif
+
 # The .PHONY is needed to ensure that we recursively use the out/Makefile
 # to check for changes.
 
-.PHONY: native clean distclean all
+.PHONY: native clean distclean all test
