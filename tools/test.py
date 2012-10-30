@@ -1209,7 +1209,7 @@ def BuildOptions():
 def ProcessOptions(options):
   global VERBOSE
   VERBOSE = options.verbose
-  options.mode = options.mode.split(',')
+  options.mode = options.mode.lower().split(',')
   for mode in options.mode:
     if not mode in ['debug', 'release']:
       print "Unknown mode %s" % mode

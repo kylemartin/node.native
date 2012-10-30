@@ -28,6 +28,7 @@
 #ifndef CCTEST_H_
 #define CCTEST_H_
 
+#include <stddef.h>
 
 // The normal strdup functions use malloc.  These versions of StrDup
 // and StrNDup uses new and calls the FatalProcessOutOfMemory handler
