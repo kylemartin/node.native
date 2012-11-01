@@ -28,7 +28,7 @@ namespace native
      *
      *  @return             This function always returns 0.
      */
-    int run(std::function<void()> callback)
+    inline int run(std::function<void()> callback)
     {
         return detail::node::instance().start(callback);
     }

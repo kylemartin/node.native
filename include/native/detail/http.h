@@ -641,7 +641,7 @@ namespace native
 //            return input->read_start();
 //        }
 
-        std::string http_status_text(int status_code)
+        inline std::string http_status_text(int status_code)
         {
             switch(status_code)
             {

@@ -25,7 +25,7 @@ namespace native
          *  @retval 6       Input string is a valid IPv6 address.
          *  @retval 0       Input string is not a valid IP address.
          */
-        int isIP(const std::string& input)
+        inline int isIP(const std::string& input)
         {
             return detail::get_ip_version(input);
         }
@@ -38,7 +38,7 @@ namespace native
          *  @retval true    Input string is a valid IPv4 address.
          *  @retval false    Input string is not a valid IPv4 address.
          */
-        bool isIPv4(const std::string& input) { return isIP(input) == 4; }
+        inline bool isIPv4(const std::string& input) { return isIP(input) == 4; }
 
         /**
          *  @brief Test if the input string is valid IPv6 address.
@@ -48,7 +48,7 @@ namespace native
          *  @retval true    Input string is a valid IPv6 address.
          *  @retval false    Input string is not a valid IPv6 address.
          */
-        bool isIPv6(const std::string& input) { return isIP(input) == 6; }
+        inline bool isIPv6(const std::string& input) { return isIP(input) == 6; }
 
         /**
          *  Represents the type of socket stream.
@@ -992,7 +992,7 @@ namespace native
             std::string pipe_name_;
         };
 
-        Server* createServer(std::function<void(Server*)> callback, bool allowHalfOpen=false)
+        inline Server* createServer(std::function<void(Server*)> callback, bool allowHalfOpen=false)
         {
             auto x = new Server(allowHalfOpen);
             assert(x);
@@ -1004,7 +1004,7 @@ namespace native
             return x;
         }
 
-        Socket* createSocket(std::function<void(Socket*)> callback=nullptr, bool allowHalfOpen=false)
+        inline Socket* createSocket(std::function<void(Socket*)> callback=nullptr, bool allowHalfOpen=false)
         {
             auto x = new Socket(nullptr, nullptr, allowHalfOpen);
             assert(x);

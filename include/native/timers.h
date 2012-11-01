@@ -155,7 +155,7 @@ namespace native
         static void unenroll(std::shared_ptr<TimeoutHandler> item);
     };
 
-	void timer::handle_timeout_(uv_timer_t* handle, int status) {
+	inline void timer::handle_timeout_(uv_timer_t* handle, int status) {
 		std::cerr << "timer::handle_timeout_" << std::endl;
 		timer* self = static_cast<timer*>(handle->data);
 		assert(self != nullptr);
@@ -189,29 +189,29 @@ namespace native
 		}
 	}
 
-	void timer::on_timeout(timeout_callback_type callback) {
+	inline void timer::on_timeout(timeout_callback_type callback) {
 		on_timeout_ = callback;
 	}
 
-	detail::resval timer::start(int64_t timeout, int64_t repeat) {
+	inline detail::resval timer::start(int64_t timeout, int64_t repeat) {
 		std::cerr << "timer::start(" << timeout << ", " << repeat << ")" << std::endl;
 		timeout_ = timeout;
 		return detail::run_(uv_timer_start, &timer_, handle_timeout_, timeout, repeat);
 	}
 
-	detail::resval timer::stop() {
+	inline detail::resval timer::stop() {
 		return detail::run_(uv_timer_stop, &timer_);
 	}
 
-	detail::resval timer::again() {
+	inline detail::resval timer::again() {
 		return detail::run_(uv_timer_again, &timer_);
 	}
 
-	void timer::set_repeat(int64_t repeat) {
+	inline void timer::set_repeat(int64_t repeat) {
 		uv_timer_set_repeat(&timer_, repeat);
 	}
 
-	int64_t timer::get_repeat() {
+	inline int64_t timer::get_repeat() {
 		int64_t repeat = uv_timer_get_repeat(&timer_);
 
 		if (repeat < 0) {
@@ -221,9 +221,7 @@ namespace native
 		return repeat;
 	}
 
-    timers::map_type timers::map_;
-
-	void timers::active(std::shared_ptr<TimeoutHandler> item) {
+	inline void timers::active(std::shared_ptr<TimeoutHandler> item) {
 		assert(item != nullptr);
 
 		// If TimeoutHandler was not previously enrolled then skip
@@ -252,7 +250,7 @@ namespace native
 		std::cerr << "timers::activate(" << item->idleTimeout_ << "," << item->idleStart_ << ")" << std::endl;
 	}
 
-	void timers::enroll(std::shared_ptr<TimeoutHandler> item, unsigned int msecs) {
+	inline void timers::enroll(std::shared_ptr<TimeoutHandler> item, unsigned int msecs) {
 		// we assume that item already enrolled if idleTimeout >= 0
 		if (item->idleTimeout_ >= 0) {
 			unenroll(item);
@@ -261,7 +259,7 @@ namespace native
 		item->idleTimeout_ = msecs;
 	}
 
-	void timers::unenroll(std::shared_ptr<TimeoutHandler> item) {
+	inline void timers::unenroll(std::shared_ptr<TimeoutHandler> item) {
 		if (item->idleTimeout_ < 0) return; // item must already be enrolled
 		auto it = map_.find(item->idleTimeout_);
 		if (it != map_.end()) { // found entry for timeout
@@ -276,7 +274,7 @@ namespace native
 		item->idleTimeout_ = -1;
 	}
 
-    std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback, int delay) {
+    inline std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback, int delay) {
     	if (!(delay >= 1 && delay <= TIMEOUT_MAX)) {
     		delay = 1;
     	}
@@ -289,12 +287,12 @@ namespace native
     	return handler;
     }
 
-    bool clearTimeout(std::shared_ptr<TimeoutHandler> handler) {
+    inline bool clearTimeout(std::shared_ptr<TimeoutHandler> handler) {
     	timers::unenroll(handler);
     	return true;
     }
 
-    timer* setInterval(timeout_callback_type callback, int repeat) {
+    inline timer* setInterval(timeout_callback_type callback, int repeat) {
 		timer* interval = new timer;
 
 		if (!(repeat >= 1 && repeat <= TIMEOUT_MAX)) {
@@ -307,7 +305,7 @@ namespace native
 		return interval;
     }
 
-    bool clearInterval(timer* timer) {
+    inline bool clearInterval(timer* timer) {
     	// TODO: check if timer is running
     	timer->close();
     	return true;

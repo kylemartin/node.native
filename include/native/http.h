@@ -308,7 +308,7 @@ namespace native
 		};
 
 
-		int Parser::on_headers_complete(const native::detail::http_message& result) {
+		inline int Parser::on_headers_complete(const native::detail::http_message& result) {
 			CRUMB();
 			if (!alloc_incoming_ || !on_incoming_) return 0;
 
@@ -319,7 +319,7 @@ namespace native
 			return 0;
 		}
 
-		int Parser::on_message_complete(const native::detail::http_message& result) {
+		inline int Parser::on_message_complete(const native::detail::http_message& result) {
 			CRUMB();
 			if (incoming_) {
 				incoming_->end();
@@ -378,6 +378,11 @@ namespace native
 			// TODO: handle encoding
 			void _buffer(const Buffer& buf) {}
 
+			/**
+			 *
+			 * @param firstLine
+			 * @param headers
+			 */
 			void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {}
 
 			void setHeader(const std::string& name, const std::string& value) {}
@@ -396,8 +401,6 @@ namespace native
 			void write(const Buffer& buf) {}
 
 			void addTrailers(const detail::http_message::headers_type& headers) {}
-
-			virtual void _implicitHeader() {};
 
 			bool end() { return false; }
 			/**
@@ -531,6 +534,10 @@ namespace native
             virtual ~ServerResponse()
             {}
 
+        private:
+
+			virtual void _implicitHeader() {};
+
         public:
             void writeContinue() {}
             void writeHead(int statusCode, const std::string& reasonPhrase, const headers_type& headers) {}
@@ -652,28 +659,38 @@ namespace native
 
         class ClientRequest : public OutgoingMessage
         {
-            typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
-
         private:
         	http_method method_;
         	headers_type headers_;
         	std::string path_;
 
         public:
+        	/**
+        	 * Construct a ClientRequest for the given url
+        	 *
+        	 * Unlike node.js, we do not accept an options map. Instead users
+        	 * must set parameters like method, headers, etc. on the request
+        	 * object itself.
+        	 *
+        	 * @param url
+        	 * @param callback
+        	 */
         	ClientRequest(detail::url_obj url, std::function<void(ClientResponse*)> callback = nullptr)
-        		: OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_()
+        		: OutgoingMessage(net::createSocket())
+        		, method_(HTTP_GET)
+        		, headers_()
+        		, path_(url.has_path() ? url.path() : "/")
         	{
             	CRUMB();
         		registerEvent<native::event::http::socket>();
         		registerEvent<native::event::http::client::response>();
         		registerEvent<native::event::error>();
-//        		registerEvent<event::connect>();
-//        		registerEvent<event::upgrade>();
-//        		registerEvent<event::continue>();
+        		registerEvent<event::connect>();
+        		registerEvent<native::event::http::client::upgrade>();
+        		registerEvent<native::event::http::Continue>();
 
         		int port = url.has_port() ? url.port() : 80;
         		std::string host = url.has_host() ? url.host() : "127.0.0.1"; // "localhost"; // TODO: resolve hostname
-        		path_ = url.has_path() ? url.path() : "/";
 
         		if (callback) {
 					once<native::event::http::client::response>(callback);
@@ -822,7 +839,7 @@ namespace native
         	}
         };
 
-        Server* createServer()
+        inline Server* createServer()
         {
         	CRUMB();
             auto server = new Server();
@@ -830,7 +847,7 @@ namespace native
             return server;
         }
 
-        ClientRequest* request(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
+        inline ClientRequest* request(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
         {
         	CRUMB();
         	detail::url_obj url;
@@ -845,7 +862,7 @@ namespace native
         	return req;
         }
 
-        ClientRequest* get(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
+        inline ClientRequest* get(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr)
         {
         	CRUMB();
         	ClientRequest* req = request(url_string, callback);

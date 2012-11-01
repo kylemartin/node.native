@@ -20,12 +20,12 @@ namespace native
 
             typedef void (*response_fn_type)(uv_fs_t*);
 
-            void response_fn1(uv_fs_t* req)
+            inline void response_fn1(uv_fs_t* req)
             {
                 event_emitter::invoke<callback_type1>(req->data);
             }
 
-            void response_fn2(uv_fs_t* req)
+            inline void response_fn2(uv_fs_t* req)
             {
                 if(req->result == -1)
                 { event_emitter::invoke<callback_type2>(req->data, resval(static_cast<uv_err_code>(req->errorno))); }
@@ -33,7 +33,7 @@ namespace native
                 { event_emitter::invoke<callback_type2>(req->data, resval()); }
             }
 
-            void response_fn3(uv_fs_t* req)
+            inline void response_fn3(uv_fs_t* req)
             {
                 if(req->result == -1)
                 { event_emitter::invoke<callback_type3>(req->data, resval(static_cast<uv_err_code>(req->errorno)), -1); }
@@ -312,7 +312,7 @@ namespace native
             };
 
             // read all data asynchronously
-            resval read_to_end(int fd, rte_callback_type callback)
+            inline resval read_to_end(int fd, rte_callback_type callback)
             {
                 auto ctx = new rte_context(fd, 512, callback);
                 assert(ctx);

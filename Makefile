@@ -19,7 +19,7 @@ native: out/Makefile
 out/Makefile: config.gypi 
 	./tools/gyp_native -f make test/test.gyp
 
-GYPFILES = native.gyp common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp test/test.gyp
+GYPFILES = native.gyp common.gypi deps/uv/uv.gyp deps/http-parser/http_parser.gyp test/test.gyp test/http/http.gyp
 
 # If configure not already called or dependent files changed run configure
 # This will reuse previous BUILDTYPE from config.mk

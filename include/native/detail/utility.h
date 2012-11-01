@@ -100,24 +100,24 @@ namespace native
 
         namespace text
         {
-            void lower(std::string& str)
+            inline void lower(std::string& str)
             {
                 std::for_each(str.begin(), str.end(), [](char& c){ c = tolower(c); });
             }
 
-            void upper(std::string& str)
+            inline void upper(std::string& str)
             {
                 std::for_each(str.begin(), str.end(), [](char& c){ c = toupper(c); });
             }
 
-            std::string to_lower(const std::string& str)
+            inline std::string to_lower(const std::string& str)
             {
                 std::string res(str);
                 std::for_each(res.begin(), res.end(), [](char& c){ c = tolower(c); });
                 return res;
             }
 
-            std::string to_upper(const std::string& str)
+            inline std::string to_upper(const std::string& str)
             {
                 std::string res(str);
                 std::for_each(res.begin(), res.end(), [](char& c){ c = toupper(c); });
@@ -142,7 +142,7 @@ namespace native
                 }
             };
 
-            bool compare_no_case(const std::string& s1, const std::string& s2)
+            inline bool compare_no_case(const std::string& s1, const std::string& s2)
             {
                 // TODO: need optimization
                 return to_lower(s1).compare(to_lower(s2)) == 0;

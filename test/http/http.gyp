@@ -39,6 +39,7 @@
       'sources': [
         'cctest.cc',
         'test-helloworld.cc',
+        'test-server.cc'
       ],
       'conditions': [
         [ 'OS=="linux"', {
