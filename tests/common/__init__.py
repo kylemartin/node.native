@@ -1,0 +1,1 @@
+# the common module is available to other tests

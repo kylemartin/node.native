@@ -29,39 +29,15 @@
   'includes': ['../../build/common.gypi'],
   'targets': [
     {
-      'target_name': 'test_http',
+      'target_name': 'test_net',
       'type': 'executable',
       'dependencies': [
       	'../../src/native.gyp:native',
         '../common/common.gyp:cctest'
       ],
       'sources': [
-        'test-helloworld.cc',
-        'test-server.cc'
-      ],
-      'conditions': [
-        [ 'OS=="linux"', {
-          'sources': [
-            'test-platform-linux.cc',
-          ],
-        }],
-        [ 'OS=="mac"', {
-          'sources': [
-            'test-platform-macos.cc',
-          ],
-        }],
-        [ 'OS=="win"', {
-          'sources': [
-            'test-platform-win32.cc',
-          ],
-          'msvs_settings': {
-            'VCCLCompilerTool': {
-              # MSVS wants this for gay-{precision,shortest}.cc.
-              'AdditionalOptions': ['/bigobj'],
-            },
-          },
-        }]
-      ],
+        'test-socket.cc',
+      ]
     }
   ],
 }

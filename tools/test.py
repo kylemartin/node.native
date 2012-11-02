@@ -115,8 +115,6 @@ class ProgressIndicator(object):
       self.lock.release()
       try:
         start = time.time()
-        # import pdb
-        # pdb.set_trace()
         output = case.Run()
         case.duration = (time.time() - start)
       except BreakNowException:

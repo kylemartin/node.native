@@ -8,7 +8,9 @@ wiki/*
 
 *.a
 *.o
+*.pyc
 
 doc/html
 
 .svn
+.DS_Store

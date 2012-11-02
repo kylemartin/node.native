@@ -39,7 +39,7 @@ clean:
 distclean:
 	-rm -rf out
 
-all_tests := http
+all_tests := http net
 
 # ifeq ($(BUILDTYPE),Release)
 # test: native
