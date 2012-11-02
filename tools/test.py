@@ -115,6 +115,8 @@ class ProgressIndicator(object):
       self.lock.release()
       try:
         start = time.time()
+        # import pdb
+        # pdb.set_trace()
         output = case.Run()
         case.duration = (time.time() - start)
       except BreakNowException:
@@ -1349,8 +1351,8 @@ def Main():
     return 1
 
   workspace = abspath(join(dirname(sys.argv[0]), '..'))
-  suites = GetSuites(join(workspace, 'test'))
-  repositories = [TestRepository(join(workspace, 'test', name)) for name in suites]
+  suites = GetSuites(join(workspace, 'tests'))
+  repositories = [TestRepository(join(workspace, 'tests', name)) for name in suites]
   repositories += [TestRepository(a) for a in options.suite]
 
   root = LiteralTestSuite(repositories)

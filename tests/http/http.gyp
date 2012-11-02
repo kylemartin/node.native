@@ -26,13 +26,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 {
-  'includes': ['../../common.gypi'],
+  'includes': ['../../build/common.gypi'],
   'targets': [
     {
       'target_name': 'cctest',
       'type': 'executable',
       'dependencies': [
-      	'../../native.gyp:native'
+      	'../../src/native.gyp:native'
       ],
       'include_dirs': [
       ],

@@ -14,6 +14,8 @@ import gyp
 # to be written.
 output_dir = os.path.join(os.path.abspath(root_dir), 'out')
 
+build_dir = os.path.join(os.path.abspath(root_dir), 'build')
+
 def run_gyp(args):
   rc = gyp.main(args)
   if rc != 0:
@@ -27,13 +29,13 @@ if __name__ == '__main__':
   # On msvs it will crash if it gets an absolute path.
   # On Mac/make it will crash if it doesn't get an absolute path.
   if sys.platform == 'win32':
-    args.append(os.path.join(root_dir, 'native.gyp'))
-    common_fn  = os.path.join(root_dir, 'common.gypi')
-    options_fn = os.path.join(root_dir, 'config.gypi')
+    args.append(os.path.join(build_dir, 'all.gyp'))
+    common_fn  = os.path.join(build_dir, 'common.gypi')
+    options_fn = os.path.join(output_dir, 'config.gypi')
   else:
-    args.append(os.path.join(os.path.abspath(root_dir), 'native.gyp'))
-    common_fn  = os.path.join(os.path.abspath(root_dir), 'common.gypi')
-    options_fn = os.path.join(os.path.abspath(root_dir), 'config.gypi')
+    args.append(os.path.join(os.path.abspath(build_dir), 'all.gyp'))
+    common_fn  = os.path.join(os.path.abspath(build_dir), 'common.gypi')
+    options_fn = os.path.join(os.path.abspath(output_dir), 'config.gypi')
 
   if os.path.exists(common_fn):
     args.extend(['-I', common_fn])

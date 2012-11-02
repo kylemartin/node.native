@@ -1,13 +1,10 @@
+out/
+
 .cproject
 .project
 .settings/*
 
 wiki/*
-
-echo
-echo_debug
-webserver
-webserver_debug
 
 *.a
 *.o
