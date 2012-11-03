@@ -36,32 +36,31 @@
         '../common/common.gyp:cctest'
       ],
       'sources': [
-        'test-helloworld.cc',
         'test-server.cc'
       ],
-      'conditions': [
-        [ 'OS=="linux"', {
-          'sources': [
-            'test-platform-linux.cc',
-          ],
-        }],
-        [ 'OS=="mac"', {
-          'sources': [
-            'test-platform-macos.cc',
-          ],
-        }],
-        [ 'OS=="win"', {
-          'sources': [
-            'test-platform-win32.cc',
-          ],
-          'msvs_settings': {
-            'VCCLCompilerTool': {
-              # MSVS wants this for gay-{precision,shortest}.cc.
-              'AdditionalOptions': ['/bigobj'],
-            },
-          },
-        }]
-      ],
+      # 'conditions': [
+      #   [ 'OS=="linux"', {
+      #     'sources': [
+      #       'test-platform-linux.cc',
+      #     ],
+      #   }],
+      #   [ 'OS=="mac"', {
+      #     'sources': [
+      #       'test-platform-macos.cc',
+      #     ],
+      #   }],
+      #   [ 'OS=="win"', {
+      #     'sources': [
+      #       'test-platform-win32.cc',
+      #     ],
+      #     'msvs_settings': {
+      #       'VCCLCompilerTool': {
+      #         # MSVS wants this for gay-{precision,shortest}.cc.
+      #         'AdditionalOptions': ['/bigobj'],
+      #       },
+      #     },
+      #   }]
+      # ],
     }
   ],
 }

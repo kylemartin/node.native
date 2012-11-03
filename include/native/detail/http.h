@@ -461,6 +461,7 @@ namespace native
 
 				std::string host("");
 				int port = 80; // default port
+				if (port){} // XXX: avoid unused warnings
 				// HTTP 1.1 requires "Host" header
 				if (message_.version() == HTTP_1_1) {
 					// get host and port info from header entry "Host"

@@ -52,6 +52,9 @@ all_tests := http net
 test: native
 	$(PYTHON) tools/test.py --mode=$(BUILDTYPE) $(all_tests)
 
+test-verbose: native
+	$(PYTHON) tools/test.py --verbose --mode=$(BUILDTYPE) $(all_tests)
+
 # The .PHONY is needed to ensure that we recursively use the out/Makefile
 # to check for changes.
 

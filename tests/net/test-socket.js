@@ -1,49 +1,46 @@
 common = require('../common/common.js');
 
 common.catch_errors(function(){
+
 var net = require('net');
-var server = net.createServer(function(c) { //'connection' listener
-  console.log('server connected');
-  c.on('end', function() {
-    console.log('server disconnected');
-  });
-  c.write('hello\r\n');
-  c.pipe(c);
-});
+var assert = require('assert');
+
+var serverConnected = 0;
 var child;
-server.listen(1337, function() { //'listening' listener
+
+var server = net.createServer(function(socket) { //'connection' listener
+	console.log("incoming connection");
+  socket.end();
+  if (++serverConnected === 2) {
+    server.close();
+  }
+});
+
+var kill = function() {
+  if (child) {
+    console.log('Killing children!');
+    child.kill();
+  }
+};
+
+server.listen(common.PORT, 'localhost', function() { //'listening' listener
   console.log('server bound');
   // start test
-  var spawn = require('child_process').spawn;
-
-  child = spawn(process.argv[2],process.argv.slice(3));
-
-  child.stdout.on('data',function(data) {
-    common.logblue(data); 
-  });
-  child.stderr.on('data',function(data) {
-    common.logred(data); 
-  });
-  child.on('exit',function(code){
-    console.log('child process exited with code ' + code);
-    process.exit(-1);
-  });
-
-  console.log("Running: " + process.argv.slice(2).join(" "));
+  var child = common.runTest(process.argv[2],process.argv.slice(3));
+  
+  console.log("Running test: " + process.argv.slice(2).join(" "));
 
   timeout = setTimeout(function(){
-    console.log("Process timeout!");
-    if (child) child.kill();
+    console.log("Test timeout!");
+    kill();
     process.exit(-1);
   }, 5000);
 });
 
-var cleanup = function() {
-  console.log('Killing Children!');
-  if (child)
-    child.kill();
-};
 // process.on('uncaughtException', cleanup);
-process.on('exit', cleanup);
+process.on('exit', function(){
+  kill();
+  assert.equal(serverConnected,2);
+});
 
 });

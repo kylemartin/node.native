@@ -46,7 +46,7 @@ extern "C" void V8_Fatal(const char* file, int line, const char* format, ...) {
   va_start(arguments, format);
   vfprintf(stderr, format, arguments);
   va_end(arguments);
-  printf("\n#\n\n");
+  fprintf(stderr, "\n#\n\n");
 
   abort();
 }

@@ -1,3 +1,5 @@
+exports.PORT = 12345;
+
 exports.catch_errors = function(runnable) {
   try {
     runnable();
@@ -15,6 +17,26 @@ exports.logred = function (msg) {
 }
 exports.logblue = function (msg) {
   process.stdout.write(blue + msg + reset);
+}
+
+exports.runTest = function(cmd, args) {
+  var spawn = require('child_process').spawn;
+
+  child = spawn(cmd,args);
+
+  child.stdout.on('data',function(data) {
+    exports.logblue(data); 
+  });
+  child.stderr.on('data',function(data) {
+    exports.logred(data); 
+  });
+
+  child.on('exit',function(code){
+    console.log('Test exited with code ' + code);
+    process.exit(code == null ? -1 : code);
+  });
+  
+  return child;
 }
 
 // // Copyright Joyent, Inc. and other Node contributors.

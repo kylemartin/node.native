@@ -1,23 +1,20 @@
 common = require('../common/common.js');
+
 common.catch_errors(function(){
 
 var spawn = require('child_process').spawn,
     child;
 
-child = spawn(process.argv[2],process.argv.slice(3));
+var kill = function() {
+  if (child) {
+    console.log('Killing children!');
+    child.kill();
+  }
+};
 
-child.stdout.on('data',function(data) {
-	common.logblue(data);	
-});
-child.stderr.on('data',function(data) {
-	common.logred(data);	
-});
-child.on('exit',function(code){
- 	console.log('child process exited with code ' + code);
- 	process.exit(-1);
-});
+child = common.runTest(process.argv[2],process.argv.slice(3));
 
-console.log("Running: " + process.argv.slice(2).join(" "));
+console.log("Running test: " + process.argv.slice(2).join(" "));
 
 // timer = setInterval(function(){
 // 	console.log(".");
@@ -25,17 +22,12 @@ console.log("Running: " + process.argv.slice(2).join(" "));
 
 timeout = setTimeout(function(){
 	console.log("Process timeout!");
-	if (child) child.kill();
+	kill();
 	process.exit(-1);
 }, 5000);
 
 
-var cleanup = function() {
-  console.log('Killing Children!');
-  if (child)
-    child.kill();
-};
 // process.on('uncaughtException', cleanup);
-process.on('exit', cleanup);
+process.on('exit', kill);
 
 });
