@@ -171,11 +171,9 @@ namespace native
         public:
 
             const headers_type& headers() const { return headers_; }
-            const headers_type& trailers() const { return trailers_; }
 
-            void add_header(const std::string& name, const std::string& value) {
-            	// TODO: if header exists then drop or concatenate
-            	headers_[name] = value;
+            void add_header(const std::string& name, const std::string& value, bool append = false) {
+              headers_[name] = (has_header(name) && append) ? headers_[name] + "," + value : value;
             }
 
             bool has_header(const std::string& name) {
@@ -188,7 +186,17 @@ namespace native
             		// TODO: throw proper error
 //            		throw Exception("header not found");
             	}
-				return it->second;
+            	return it->second;
+            }
+
+            void remove_header(const std::string& name) {
+              headers_.erase(name);
+            }
+
+            const headers_type& trailers() const { return trailers_; }
+
+            void add_trailer(const std::string& name, const std::string& value, bool append = false) {
+              trailers_[name] = (has_header(name) && append) ? trailers_[name] + "," + value : value;
             }
 
             bool has_trailer(const std::string& name) {
@@ -201,7 +209,11 @@ namespace native
             		// TODO: throw proper error
 //            		throw Exception("header not found");
             	}
-				return it->second;
+            	return it->second;
+            }
+
+            void remove_trailer(const std::string& name) {
+              trailers_.erase(name);
             }
 
             const http_version& version() const { return version_; }

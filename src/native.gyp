@@ -10,7 +10,11 @@
       'sources': [
         'native.cc',
         'timers.cc',
-        'http.cc'
+        'http/client.cc',
+        'http/incoming.cc',
+        'http/outgoing.cc',
+        'http/parser.cc',
+        'http/server.cc'
       ],
       
       'dependencies': [
