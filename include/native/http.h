@@ -347,9 +347,14 @@ namespace native
 			bool useChunkedEncodingByDefault_;
 			bool sendDate_;
 			bool hasBody_;
+		  bool expectContinue_;
+		  bool sent100_;
+		  bool shouldKeepAlive_;
 			Buffer trailer_;
 			bool finished_;
 			detail::http_message message_;
+			Buffer header_;
+			bool headerSent_;
 		public:
 			OutgoingMessage(net::Socket* socket_)
 				: socket_(socket_),
@@ -359,10 +364,15 @@ namespace native
 				  chunkedEncoding_(false),
 				  useChunkedEncodingByDefault_(true),
 				  sendDate_(false),
-				  hasBody_(true),
+				  hasBody_(false),
+		      expectContinue_(false),
+		      sent100_(false),
+		      shouldKeepAlive_(false),
 				  trailer_(),
 				  finished_(false),
-				  message_()
+				  message_(),
+				  header_(),
+				  headerSent_(false)
 			{}
 
 			void destroy(const Exception& e) {
@@ -370,22 +380,22 @@ namespace native
 			}
 
 			// TODO: handle encoding
-			void _send(const Buffer& buf) {}
+			void _send(const Buffer& buf);
 
 			// TODO: handle encoding
-			void _writeRaw(const Buffer& buf) {}
+			void _writeRaw(const Buffer& buf);
 
 			// TODO: handle encoding
-			void _buffer(const Buffer& buf) {}
+			void _buffer(const Buffer& buf);
 
 			/**
 			 *
 			 * @param firstLine
 			 * @param headers
 			 */
-			void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {}
+			void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers);
 
-			void setHeader(const std::string& name, const std::string& value) {}
+			void setHeader(const std::string& name, const std::string& value);
 
 			std::string getHeader(const std::string& name) {
 				return "";
@@ -512,6 +522,13 @@ namespace native
 
             virtual ~ServerRequest()
             {}
+        public:
+            http_method method() {
+            	return message_.method();
+            }
+            detail::url_obj url() {
+            	return message_.url();
+            }
         };
 
         class ServerResponse : public OutgoingMessage
@@ -540,7 +557,8 @@ namespace native
 
         public:
             void writeContinue() {}
-            void writeHead(int statusCode, const std::string& reasonPhrase, const headers_type& headers) {}
+            void writeHead(int statusCode, const std::string& reasonPhrase, const headers_type& headers);
+            void writeHead(int statusCode, const headers_type& headers);
 
             int statusCode() const { return 0; }
             void statusCode(int value) {} // calling this after response was sent is error
@@ -554,6 +572,12 @@ namespace native
             {
             	CRUMB();
                 socket_->write(data);
+            }
+
+            void write(const std::string& data)
+            {
+              CRUMB();
+              socket_->write(Buffer(data));
             }
 
             void addTrailers(const headers_type& headers) {}
@@ -573,6 +597,11 @@ namespace native
                 	CRUMB();
                     emit<native::event::error>(Exception("Failed to close the socket."));
                 }
+            }
+
+            void end()
+            {
+              end(Buffer(nullptr));
             }
         };
 

@@ -253,6 +253,7 @@ namespace native
              */
             virtual bool write(const Buffer& buffer, std::function<void()> callback=nullptr)
             {
+              CRUMB();
                 bytes_written_ += buffer.size();
 
                 if(connecting_)

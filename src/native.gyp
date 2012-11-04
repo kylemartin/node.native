@@ -9,7 +9,8 @@
 
       'sources': [
         'native.cc',
-        'timers.cc'
+        'timers.cc',
+        'http.cc'
       ],
       
       'dependencies': [
