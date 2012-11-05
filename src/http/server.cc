@@ -3,8 +3,8 @@
 
 namespace native { namespace http {
 
-ServerRequest::ServerRequest(const IncomingMessage& msg)
-    : IncomingMessage(msg) // TODO: use move constructor
+ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
+    : IncomingMessage(socket, message) // TODO: use move constructor
 {
   CRUMB();
     assert(socket_);
@@ -19,10 +19,10 @@ ServerRequest::ServerRequest(const IncomingMessage& msg)
 }
 
 http_method ServerRequest::method() {
-  return message_.method();
+  return message_->method();
 }
 detail::url_obj ServerRequest::url() {
-  return message_.url();
+  return message_->url();
 }
 
 ServerResponse::ServerResponse(net::Socket* socket)
@@ -223,15 +223,11 @@ Server::Server()
 
         // The parser will start reading from the socket and parsing data
 
-        parser->alloc_incoming([](net::Socket* socket){
-          return new ServerRequest(socket);
-        });
-
-        // After receiving headers it will create an IncomingMessage and invoke this callback
-        parser->on_incoming([=](IncomingMessage* msg) {
+        // After receiving headers it will call this to create an IncomingMessage
+        parser->on_incoming([=](net::Socket* socket, detail::http_message* message) {
           CRUMB();
           // Create ServerRequest from IncomingMessage
-          ServerRequest* req = static_cast<ServerRequest*>(msg);
+          ServerRequest* req = new ServerRequest(socket, message);
 
           assert(req);
 
@@ -241,7 +237,7 @@ Server::Server()
           req->on<native::event::end>([=](){
             CRUMB();
             // Create ServerResponse
-            ServerResponse* res = new ServerResponse(msg->socket());
+            ServerResponse* res = new ServerResponse(socket);
             assert(res);
             // Pass request and response to listener
             emit<native::event::http::server::request>(req, res);
@@ -252,6 +248,7 @@ Server::Server()
 
 //                      return 0; // Don't skip body
 //                      return 1; // Skip body
+          return req;
         });
     });
 }

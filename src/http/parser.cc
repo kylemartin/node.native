@@ -4,17 +4,40 @@
 namespace native {
 namespace http {
 
+/*
+ * Public
+ */
+Parser* Parser::create(
+    http_parser_type type,
+    net::Socket* socket,
+    on_incoming_type incoming_cb)
+{
+  CRUMB();
+  Parser* parser(new Parser(type, socket));
+
+  if (incoming_cb) parser->on_incoming(incoming_cb);
+  return parser;
+}
+
+void Parser::on_incoming(on_incoming_type callback) {
+  on_incoming_ = callback;
+}
+
+/*
+ * Private
+ */
+
 Parser::Parser(http_parser_type type, net::Socket* socket)
-  : on_incoming_()
-  , context_(type)
+  : message_(new detail::http_message)
+  , context_(type, message_)
   , socket_(socket)
   , incoming_(nullptr)
-  , alloc_incoming_(nullptr)
+  , on_incoming_()
 {
   // wrap callbacks in closures
   context_.on_headers_complete(
-    [this](const native::detail::http_message& result){
-      on_headers_complete(result);
+    [this](){
+      on_headers_complete();
     }
   );
   context_.on_body(
@@ -23,8 +46,8 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
     }
   );
   context_.on_message_complete(
-    [this](const native::detail::http_message& result){
-      on_message_complete(result);
+    [this](){
+      on_message_complete();
     }
   );
   context_.on_error(
@@ -33,6 +56,7 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
     }
   );
 
+  // Register socket event handlers
   socket->on<native::event::data>([=](const Buffer& buf) {
     CRUMB();
       if(context_.feed_data(buf.base(), 0, buf.size()))
@@ -66,27 +90,6 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
   });
 }
 
-Parser* Parser::create(
-    http_parser_type type,
-    net::Socket* socket,
-    on_incoming_type callback)
-{
-  CRUMB();
-  Parser* parser(new Parser(type, socket));
-
-  if (callback) parser->on_incoming(callback);
-
-  return parser;
-}
-
-void Parser::on_incoming(on_incoming_type callback) {
-  on_incoming_ = callback;
-}
-
-void Parser::alloc_incoming(alloc_incoming_type callback) {
-  alloc_incoming_ = callback;
-}
-
 int Parser::on_body(const char* buf, size_t off, size_t len) {
   CRUMB();
   return 0;
@@ -98,18 +101,16 @@ int Parser::on_error(const native::Exception& e) {
 }
 
 
-int Parser::on_headers_complete(const native::detail::http_message& result) {
+int Parser::on_headers_complete() {
   CRUMB();
-  if (!alloc_incoming_ || !on_incoming_) return 0;
+  if (!on_incoming_) return 0;
 
-  incoming_ = alloc_incoming_(socket_);
-
-  on_incoming_(incoming_);
+  incoming_ = on_incoming_(socket_, message_);
 
   return 0;
 }
 
-int Parser::on_message_complete(const native::detail::http_message& result) {
+int Parser::on_message_complete() {
   CRUMB();
   if (incoming_) {
     incoming_->end();

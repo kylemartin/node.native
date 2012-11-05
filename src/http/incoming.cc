@@ -4,14 +4,14 @@
 namespace native {
 namespace http {
 
-IncomingMessage::IncomingMessage(net::Socket* socket)
+IncomingMessage::IncomingMessage(net::Socket* socket, detail::http_message* message)
 : socket_(socket)
 , complete_(false)
 , readable_(true)
 , paused_(false)
 , pendings_()
 , endEmitted_(false)
-, message_()
+, message_(message)
 {
   registerEvent<native::event::end>();
 }

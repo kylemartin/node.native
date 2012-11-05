@@ -11,9 +11,42 @@
 /*
 # HTTP #
 
-Sockets are created by a Server for incoming connections or by a ClientRequest for a new connection. Parser factory manages pool of http_parser_context. Each Parser takes ownership of a Socket and begins to read and feed data to its http_parser_context. Users of a Parser register callbacks for allocating and handling an IncomingMessage once headers have been received. For servers, a ServerRequest is allocated, for clients, a ClientResponse. Users can attach data event handlers to the ServerRequest or ClientResponse to receive post or body data respectively.
+Sockets are created by a Server for incoming connections or by a ClientRequest
+for a new connection. Parser factory manages pool of http_parser_context. Each
+Parser takes ownership of a Socket and begins to read and feed data to its
+http_parser_context. Users of a Parser register callbacks for allocating and
+handling an IncomingMessage once headers have been received. For servers, a
+ServerRequest is allocated, for clients, a ClientResponse. Users can attach data
+event handlers to the ServerRequest or ClientResponse to receive post or body
+data respectively.
 
-Since HTTP request/response messages are structurally similar, the detail::http_message class represents common features of both. It holds a status line, sets of leading and trailing headers, and an optional body. IncomingMessage and OutgoingMessage own a http_message and provide interfaces for read-only incoming messages and write-only outgoing messages, independent of the type of message (request/response). IncomingMessage/OutgoingMessage create request/response Parser to handle data read from Socket. Message defines callbacks registered on Parser to handle status line, headers, etc. as they are parsed.
+Since HTTP request/response messages are structurally similar, the
+detail::http_message class represents common features of both. It holds a status
+line, sets of leading and trailing headers, and an optional body.
+IncomingMessage and OutgoingMessage own an http_message and provide interfaces
+for read-only incoming messages and write-only outgoing messages, independent of
+the type of message (request/response).
+
+IncomingMessage implements the ReadableStream event interface and encapsulates
+the detail::http_message and logic common to the ServerRequest and
+ClientResponse sub-classes. ServerRequest and ClientResponse are further
+specialized for use in server and client contexts.
+
+OutgoingMessage implements the WritableStream event interface and encapsulates
+the detail::http_message and logic common to ServerResponse and ClientRequest
+sub-classes. ServerResponse and ClientResponse are further specialized for use
+in server and client contexts.
+
+For incoming messages, instances of detail::http_message are passed between
+the Parser, detail::http_parser_context and allocated IncomingMessage. They
+are created by the Parser and passed to its detail::http_parser_context to
+receive first line and initial headers. After headers are parsed by the
+http_parser_context the Parser's registered on_headers_complete callback is
+invoked to pass ownership of the http_message (though it will continue to
+update it as parsing continues). The Parser allocates an IncomingMessage at
+that time and passes ownership of the message to it. Since outgoing messages
+do not involve parsing a detail::http_message instance is owned by its
+associated OutgoingMessage.
 
  */
 namespace native
@@ -50,44 +83,35 @@ namespace native
   namespace http {
 
     /**
-     * Factory for Parser instances managing a parsing context.
+     * Factory for constructing Parser instances managing a parsing context.
      *
-     * Allocates a pool of parser contexts for improving performance. Parser instances expect to process incoming messages from clients or servers. IncomingMessage instances are generated based on received headers and passed on to the on_incoming callback to determine if the body needs to be parsed. The on_incoming callback should be registered before starting to receive a message and implements the the logic for a handling a request/response.
+     * Parser instances expect to process incoming messages from clients or 
+     * servers. IncomingMessage instances are created based on received headers 
+     * and passed on to the on_incoming callback to determine if the body needs 
+     * to be parsed. The on_incoming callback should be registered before 
+     * starting to receive a message and implements the the logic for a handling
+     * an incoming request/response.
      */
     class Parser {
-    private:
-      /*
-       * This is the onIncoming callback which is specified for handling request and response IncomingMessages. This gets called from on_handle_headers_complete to determine if we should skip the body and to pass the IncomingMessage constructed from the headers, which can in turn be passed in a request/response event so the user can register event handlers on the IncomingMessage.
-       */
-      typedef std::function<void(IncomingMessage*)> on_incoming_type;
-      on_incoming_type on_incoming_;
-      detail::http_parser_context context_;
-      net::Socket* socket_;
-      IncomingMessage* incoming_;
-
-      /*
-       * This is a callback that must be registered to allow construction  of classes derived from IncomingMessage. This is necessary  because we want to emit events on the derived type. It might  be possible/better to do this another way.
-       */
-      typedef std::function<IncomingMessage*(net::Socket*)> alloc_incoming_type;
-      alloc_incoming_type alloc_incoming_;
-
-      Parser(http_parser_type type, net::Socket* socket);
-
-      /**
-       * Process headers and setup an IncomingMessage to pass to the handle_incoming callback
-       * @return
-       */
-      int on_headers_complete(const native::detail::http_message& result);
-
-      int on_body(const char* buf, size_t off, size_t len);
-
-      int on_message_complete(const native::detail::http_message& result);
-
-      int on_error(const native::Exception& e);
     public:
-      typedef std::shared_ptr<Parser> ptr;
       /**
-       * Create a parser of the specified type attached to the given socket which invokes the given callback with an IncomingMessage instance.
+       * Callback that must be registered to allow construction of classes
+       * derived from IncomingMessage. This is necessary  because we want to
+       * emit events on the derived type. It might  be possible/better to do
+       * this another way (templates, etc.).
+       * Callback for handling request and response IncomingMessages. This gets
+       * called from on_handle_headers_complete to determine if we should skip 
+       * the body and to pass the IncomingMessage constructed from the headers, 
+       * which can in turn be passed in a request/response event so the user can
+       * register event handlers on the IncomingMessage.
+       */
+      typedef std::function<IncomingMessage*(net::Socket*, detail::http_message*)> on_incoming_type;
+
+      typedef std::shared_ptr<Parser> ptr;
+
+      /**
+       * Create a parser of the specified type attached to the given socket
+       * which invokes the given callback with an IncomingMessage instance.
        *
        * @param socket
        * @param type
@@ -97,20 +121,73 @@ namespace native
       static Parser* create(
           http_parser_type type,
           net::Socket* socket,
-          on_incoming_type callback = nullptr);
+          on_incoming_type incoming_cb = nullptr);
 
+      /**
+       * Set the callback for allocating an incoming message
+       * @param callback [description]
+       */
       void on_incoming(on_incoming_type callback);
 
-      void alloc_incoming(alloc_incoming_type callback);
+    private:
+
+      detail::http_message* message_; // Constructed by Parser
+      detail::http_parser_context context_;
+      net::Socket* socket_; // Passed to constructor
+      IncomingMessage* incoming_; // Allocated via registered callback
+      on_incoming_type on_incoming_;
+
+      /**
+       * Private constructor
+       * @param type   http_parser_type value (HTTP_REQUEST,HTTP_RESPONSE,HTTP_BOTH)
+       * @param socket net::Socket to be read by parser
+       */
+      Parser(http_parser_type type, net::Socket* socket);
+
+      /**
+       * Registered with detail::http_parser_context to process headers and 
+       * setup an IncomingMessage to pass to the on_incoming callback registered
+       * with this Parser
+       * @param  result [description]
+       * @return        [description]
+       */
+      int on_headers_complete();
+
+      /**
+       * Registered with detail::http_parser_context to handle a chunk or 
+       * complete body of a message
+       * @param  buf Data buffer
+       * @param  off Offset into buffer
+       * @param  len Length of buffer
+       * @return     [description]
+       */
+      int on_body(const char* buf, size_t off, size_t len);
+
+      /**
+       * Registered with detail::http_parser_context to handle a finished 
+       * message (received body and trailers)
+       * @param  result [description]
+       * @return        [description]
+       */
+      int on_message_complete();
+
+      /**
+       * Registered with detail::http_parser_context to handle an error in 
+       * parsing data received on socket
+       * @param  e [description]
+       * @return   [description]
+       */
+      int on_error(const native::Exception& e);
 
     };
 
     /**
-     * This is the base class for incoming http messages (requests or
-     * responses for servers or clients respectively). These will be
-     * created by a Parser after parsing headers and will be passed to a
-     * request/response handler for further processing and registering
-     * event listeners. It implements the ReadableStream interface.
+     * This is the base class for incoming http messages (requests or responses 
+     * for servers or clients respectively). These will be created by a Parser 
+     * after parsing headers and will be passed to a request/response handler 
+     * for further processing and registering event listeners. It implements 
+     * the ReadableStream interface and read-only access to encapsulated
+     * instance of detail::http_message.
      *
      * Emits the following events:
      *   data  - when a chunk of the body is received
@@ -127,10 +204,10 @@ namespace native
       bool paused_;
       detail::http_message::headers_type pendings_;
       bool endEmitted_;
-      detail::http_message message_;
+      detail::http_message* message_;
 
     public:
-      IncomingMessage(net::Socket* socket);
+      IncomingMessage(net::Socket* socket, detail::http_message* message);
 
       // TODO: add move constructor
 
@@ -139,10 +216,10 @@ namespace native
        */
 
       net::Socket* socket() { return socket_; }
-      int statusCode() { return message_.status(); }
-      std::string httpVersion() { return message_.version_string(); }
-      int httpVersionMajor() { return message_.version_major(); }
-      int httpVersionMinor() { return message_.version_minor(); }
+      int statusCode() { return message_->status(); }
+      std::string httpVersion() { return message_->version_string(); }
+      int httpVersionMajor() { return message_->version_major(); }
+      int httpVersionMinor() { return message_->version_minor(); }
 
       void destroy(const Exception& e) {
         socket_->destroy(e);
@@ -246,7 +323,7 @@ namespace native
         friend class Server;
 
     protected:
-        ServerRequest(const IncomingMessage& msg);
+        ServerRequest(net::Socket* socket, detail::http_message* message);
 
         virtual ~ServerRequest() {}
     public:
@@ -307,7 +384,7 @@ namespace native
     class ClientResponse : public IncomingMessage
     {
     public:
-      ClientResponse(net::Socket* socket);
+      ClientResponse(net::Socket* socket, detail::http_message* message);
     };
 
     class ClientRequest : public OutgoingMessage

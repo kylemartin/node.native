@@ -4,8 +4,8 @@
 namespace native {
 namespace http {
 
-ClientResponse::ClientResponse(net::Socket* socket)
-  : IncomingMessage(socket)
+ClientResponse::ClientResponse(net::Socket* socket, detail::http_message* message)
+  : IncomingMessage(socket, message)
 {
     CRUMB();
   assert(socket);
@@ -95,11 +95,6 @@ void ClientRequest::init_socket() {
 
     // The parser will start reading from the socket and parsing data
 
-    // Setup parser for handling response
-    parser->alloc_incoming([](net::Socket* socket){
-      return new ClientResponse(socket);
-    });
-
     // TODO: set parser max. headers
     // TODO: Setup drain event
     // TODO: remove drain before setting it
@@ -115,8 +110,10 @@ void ClientRequest::init_socket() {
     socket_->on<native::event::close>(on_socket_close);
 
     // set on incoming callback on parser
-    parser->on_incoming([this](IncomingMessage* res){
-      this->on_incoming_message(res);
+    parser->on_incoming([this](net::Socket* socket, detail::http_message* message){
+      IncomingMessage* result = new ClientResponse(socket, message);
+      this->on_incoming_message(result);
+      return result;
     });
 
     // Emit socket event

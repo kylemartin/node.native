@@ -329,7 +329,7 @@ namespace native
         private:
             http_parser parser_;
             http_parser_settings settings_;
-            http_message message_;
+            http_message* message_;
 
             bool was_header_value_;
             std::string last_header_field_;
@@ -340,9 +340,9 @@ namespace native
             bool have_flushed_;
 
             // Callbacks for inspecting message as it is parsed
-            typedef std::function<void(const http_message&)> on_headers_complete_type;
+            typedef std::function<void()> on_headers_complete_type;
             typedef std::function<void(const char* buf, size_t off, size_t len)> on_body_type;
-            typedef std::function<void(const http_message&)> on_message_complete_type;
+            typedef std::function<void()> on_message_complete_type;
             typedef std::function<void(const resval&)> on_error_type;
 
             on_headers_complete_type on_headers_complete_;
@@ -351,10 +351,10 @@ namespace native
             on_error_type on_error_;
 
         public:
-            http_parser_context(http_parser_type parser_type)
+            http_parser_context(http_parser_type parser_type, http_message* message)
                 : parser_()
                 , settings_()
-                , message_()
+                , message_(message)
                 , was_header_value_(true)
                 , last_header_field_()
                 , last_header_value_()
@@ -371,10 +371,10 @@ namespace native
                 settings_.on_message_begin = on_message_begin;
                 settings_.on_url = on_url;
                 settings_.on_header_field = on_header_field;
-				settings_.on_header_value = on_header_value;
-				settings_.on_headers_complete = on_headers_complete;
-				settings_.on_body = on_body;
-				settings_.on_message_complete = on_message_complete;
+                settings_.on_header_value = on_header_value;
+                settings_.on_headers_complete = on_headers_complete;
+                settings_.on_body = on_body;
+                settings_.on_message_complete = on_message_complete;
             }
 
             ~http_parser_context()
@@ -386,7 +386,7 @@ namespace native
 				assert(self);
 
             	// Reset parser state
-            	self->message_.url(url_obj()); // TODO: add reset function to url_obj
+            	self->message_->url(url_obj()); // TODO: add reset function to url_obj
             	return 0;
             }
 
@@ -397,7 +397,7 @@ namespace native
 
 				assert(at && len);
 
-				if(!self->message_.url(at, len))
+				if(!self->message_->url(at, len))
 				{
 					self->error_ = resval(error::http_parser_url_fail);
 					return 1;
@@ -417,7 +417,7 @@ namespace native
 					if(!self->last_header_field_.empty())
 					{
 						// add new entry
-						self->message_.add_header(self->last_header_field_, self->last_header_value_);
+						self->message_->add_header(self->last_header_field_, self->last_header_value_);
 						self->last_header_value_.clear();
 
 						// TODO: call Flush if ran out of space for headers
@@ -465,7 +465,7 @@ namespace native
 				 */
 
 				// HTTP version
-				message_.version(parser_.http_major, parser_.http_minor);
+				message_->version(parser_.http_major, parser_.http_minor);
 
 				/*
 				 * Response
@@ -475,10 +475,10 @@ namespace native
 				int port = 80; // default port
 				if (port){} // XXX: avoid unused warnings
 				// HTTP 1.1 requires "Host" header
-				if (message_.version() == HTTP_1_1) {
+				if (message_->version() == HTTP_1_1) {
 					// get host and port info from header entry "Host"
-					auto x = message_.headers().find("host");
-					if(x != message_.headers().end())
+					auto x = message_->headers().find("host");
+					if(x != message_->headers().end())
 					{
 						auto s = x->second;
 						auto colon = s.find_last_of(':');
@@ -495,24 +495,24 @@ namespace native
 				}
 
 				// HTTP status
-				message_.status(parser_.status_code);
+				message_->status(parser_.status_code);
 
 				/*
 				 * Request
 				 */
 
 				// HTTP method
-				message_.method(static_cast<http_method>(parser_.method));
+				message_->method(static_cast<http_method>(parser_.method));
 
 				/*
 				 * Headers
 				 */
 
 				// HTTP keep-alive
-				message_.should_keep_alive(http_should_keep_alive(&parser_));
+				message_->should_keep_alive(http_should_keep_alive(&parser_));
 
 				// HTTP upgrade
-				message_.upgrade(parser_.upgrade > 0);
+				message_->upgrade(parser_.upgrade > 0);
 
 			}
 
@@ -526,14 +526,14 @@ namespace native
 				if(!self->last_header_field_.empty())
 				{
 					// add new entry
-					self->message_.add_header(self->last_header_field_, self->last_header_value_);
+					self->message_->add_header(self->last_header_field_, self->last_header_value_);
 				}
 
 				self->prepare_message();
 
 				// Call handle_headers_complete
 				if (self->on_headers_complete_) {
-					self->on_headers_complete_(self->message_);
+					self->on_headers_complete_();
 				}
 				return 0;
 			}
@@ -561,7 +561,7 @@ namespace native
 
 				// Call handle_message_complete
 				if (self->on_message_complete_) {
-					self->on_message_complete_(self->message_);
+					self->on_message_complete_();
 				}
 				return 0;
 			}
