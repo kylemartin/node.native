@@ -10,6 +10,8 @@
       'sources': [
         'native.cc',
         'timers.cc',
+        'detail/node.cc',
+        'detail/handle.cc',
         'http/client.cc',
         'http/incoming.cc',
         'http/outgoing.cc',

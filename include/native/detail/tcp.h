@@ -8,6 +8,8 @@ namespace native
 {
     namespace detail
     {
+        namespace {
+
         class tcp : public stream
         {
         public:
@@ -166,6 +168,8 @@ namespace native
         private:
             uv_tcp_t tcp_;
         };
+
+        }  // namespace
     }
 }
 

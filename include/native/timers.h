@@ -18,25 +18,14 @@ When the timer fires it invokes each TimeoutHandler in the list.
 #ifndef __TIMERS_H__
 #define __TIMERS_H__
 
-#include <chrono>
-
 #include "base.h"
 #include "detail.h"
-
-// TODO: is this the best way to get current time?
-static int64_t get_time_milliseconds() {
-	return std::chrono::duration_cast<std::chrono::milliseconds>(
-			std::chrono::system_clock::now().time_since_epoch()).count();
-}
 
 namespace native
 {
 
 	class timer;
 	class timers;
-
-	// Timeout values > TIMEOUT_MAX are set to 1.
-	static int TIMEOUT_MAX = 2147483647; // 2^31-1
 
 	typedef std::function<void()> timeout_callback_type;
 
@@ -97,12 +86,7 @@ namespace native
 		typedef std::list<std::shared_ptr<TimeoutHandler>> list_type;
 
 		// TODO: make this noncopyable
-		timer() : handle(reinterpret_cast<uv_handle_t*>(&timer_))
-				, on_timeout_(), list_(), timeout_(-1) {
-			int r = uv_timer_init(uv_default_loop(), &timer_);
-			assert(r == 0);
-			timer_.data = this;
-		}
+		timer();
 		virtual ~timer() { std::cerr << "~timer()" << std::endl; };
 
 	private:
@@ -155,162 +139,10 @@ namespace native
         static void unenroll(std::shared_ptr<TimeoutHandler> item);
     };
 
-	inline void timer::handle_timeout_(uv_timer_t* handle, int status) {
-		std::cerr << "timer::handle_timeout_" << std::endl;
-		timer* self = static_cast<timer*>(handle->data);
-		assert(self != nullptr);
-		if (self->list_.empty()) { // No enrolled TimeoutHandler
-			if (self->on_timeout_) {
-				self->on_timeout_(); // Invoke callback
-			}
-		} else { // Invoke all enrolled TimeoutHandler
-
-			// Get current time
-			int64_t now = get_time_milliseconds();
-
-			std::cerr << "number of timeouts: " << self->list_.size() << std::endl;
-			while (!self->list_.empty()) {
-				std::shared_ptr<TimeoutHandler> first = self->list_.front();
-				unsigned int diff = now - first->idleStart_;
-				unsigned int msecs = first->idleTimeout_; // XXX: maybe store timeout in timer
-				if (diff + 1 < msecs) {
-					// called too early, start timer again
-					self->start(msecs - diff, 0);
-					return;
-				}
-				std::shared_ptr<TimeoutHandler> handler = self->list_.front();
-				self->list_.pop_front();
-				handler->on_timeout();
-			}
-
-			assert(self->list_.empty()); // List must now be empty
-			self->close(); // Close this timer
-			timers::map_.erase(self->timeout_); // Erase entry in map
-		}
-	}
-
-	inline void timer::on_timeout(timeout_callback_type callback) {
-		on_timeout_ = callback;
-	}
-
-	inline detail::resval timer::start(int64_t timeout, int64_t repeat) {
-		std::cerr << "timer::start(" << timeout << ", " << repeat << ")" << std::endl;
-		timeout_ = timeout;
-		return detail::run_(uv_timer_start, &timer_, handle_timeout_, timeout, repeat);
-	}
-
-	inline detail::resval timer::stop() {
-		return detail::run_(uv_timer_stop, &timer_);
-	}
-
-	inline detail::resval timer::again() {
-		return detail::run_(uv_timer_again, &timer_);
-	}
-
-	inline void timer::set_repeat(int64_t repeat) {
-		uv_timer_set_repeat(&timer_, repeat);
-	}
-
-	inline int64_t timer::get_repeat() {
-		int64_t repeat = uv_timer_get_repeat(&timer_);
-
-		if (repeat < 0) {
-			//TODO: handle error
-		}
-
-		return repeat;
-	}
-
-	inline void timers::active(std::shared_ptr<TimeoutHandler> item) {
-		assert(item != nullptr);
-
-		// If TimeoutHandler was not previously enrolled then skip
-		if (item->idleTimeout_ < 0) return;
-
-		// Get timeout from handler
-		unsigned int msecs = item->idleTimeout_;
-
-		timer* t;
-
-		if (!map_.count(msecs)) {// no timer in map for msecs
-			// insert new timer into map and start it
-			t = new timer();
-			map_.emplace(msecs, t).first->second->start(msecs, 0);
-			// NOTE: the timer must be closed before removing from map, otherwise it will not be deleted
-		} else {
-			// Find timeout in map
-			t = map_[msecs];
-		}
-
-		// Set start time for TimeoutHandler
-		item->idleStart_ = get_time_milliseconds();
-		std::cerr << "start: " << item->idleStart_ << std::endl;
-		// Append TimeoutHandler to timer list
-		t->list_.push_back(item);
-		std::cerr << "timers::activate(" << item->idleTimeout_ << "," << item->idleStart_ << ")" << std::endl;
-	}
-
-	inline void timers::enroll(std::shared_ptr<TimeoutHandler> item, unsigned int msecs) {
-		// we assume that item already enrolled if idleTimeout >= 0
-		if (item->idleTimeout_ >= 0) {
-			unenroll(item);
-		}
-		assert(item->idleTimeout_ < 0);
-		item->idleTimeout_ = msecs;
-	}
-
-	inline void timers::unenroll(std::shared_ptr<TimeoutHandler> item) {
-		if (item->idleTimeout_ < 0) return; // item must already be enrolled
-		auto it = map_.find(item->idleTimeout_);
-		if (it != map_.end()) { // found entry for timeout
-			timer* t = it->second;
-			t->list_.remove(item); // remove from timer list
-			if (t->list_.empty()) { // timer list now empty
-				t->close(); // close timer
-				map_.erase(it); // remove it from map
-			}
-		}
-		// ensure handle won't be insterted again if active called later
-		item->idleTimeout_ = -1;
-	}
-
-    inline std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback, int delay) {
-    	if (!(delay >= 1 && delay <= TIMEOUT_MAX)) {
-    		delay = 1;
-    	}
-
-    	std::shared_ptr<TimeoutHandler> handler(new TimeoutCaller(callback));
-
-    	timers::enroll(handler, delay);
-    	timers::active(handler);
-
-    	return handler;
-    }
-
-    inline bool clearTimeout(std::shared_ptr<TimeoutHandler> handler) {
-    	timers::unenroll(handler);
-    	return true;
-    }
-
-    inline timer* setInterval(timeout_callback_type callback, int repeat) {
-		timer* interval = new timer;
-
-		if (!(repeat >= 1 && repeat <= TIMEOUT_MAX)) {
-			repeat = 1; // schedule on next tick, follows browser behaviour
-		}
-
-		interval->on_timeout(callback);
-
-		interval->start(repeat, repeat);
-		return interval;
-    }
-
-    inline bool clearInterval(timer* timer) {
-    	// TODO: check if timer is running
-    	timer->close();
-    	return true;
-    }
-
+    std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback, int delay);
+    bool clearTimeout(std::shared_ptr<TimeoutHandler> handler);
+    timer* setInterval(timeout_callback_type callback, int repeat);
+    bool clearInterval(timer* timer);
 }
 
 #endif

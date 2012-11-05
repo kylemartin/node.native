@@ -1,4 +1,5 @@
 var common = require('../common/common.js');
+var assert = require('assert');
 var http = require('http');
 
 common.catch_errors(function(){

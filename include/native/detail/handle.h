@@ -43,21 +43,7 @@ namespace native
             }
 
             // Note that the handle object itself is deleted in a deferred callback of uv_close() invoked in this function.
-            virtual void close()
-            {
-                if(!handle_) return;
-
-                uv_close(handle_, [](uv_handle_t* h) {
-                    auto self = reinterpret_cast<handle*>(h->data);
-                    assert(self && self->handle_ == nullptr);
-                    delete self;
-                });
-
-                handle_ = nullptr;
-                handle::ref();
-
-                state_change();
-            }
+            virtual void close();
 
             virtual void state_change() {}
 

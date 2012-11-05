@@ -8,6 +8,8 @@ namespace native
 {
     namespace detail
     {
+        namespace {
+
         class tcp;
 
         class stream : public handle
@@ -122,12 +124,12 @@ namespace native
 
             virtual resval shutdown()
             {
-            	CRUMB();
+              CRUMB();
                 auto req = new uv_shutdown_t;
                 assert(req);
 
                 bool res = uv_shutdown(req, stream_, [](uv_shutdown_t* req, int status){
-                	CRUMB();
+                  CRUMB();
                     auto self = reinterpret_cast<stream*>(req->handle->data);
                     assert(self);
                     if(self->on_complete_) self->on_complete_(status?get_last_error():resval());
@@ -220,6 +222,8 @@ namespace native
             on_complete_callback_type on_complete_;
 
         };
+
+        }  // namespace
     }
 }
 

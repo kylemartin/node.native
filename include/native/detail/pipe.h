@@ -8,6 +8,7 @@ namespace native
 {
     namespace detail
     {
+    namespace {
         class pipe : public stream
         {
         public:
@@ -63,6 +64,7 @@ namespace native
         private:
             uv_pipe_t pipe_;
         };
+    }
     }
 }
 
