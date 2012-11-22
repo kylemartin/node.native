@@ -11,11 +11,20 @@ TEST(Server) {
     http::Server* server = http::createServer();
 
     server->on<native::event::http::server::request>([&](http::ServerRequest* req, http::ServerResponse* res){
-      std::cout << "[server] on request" << std::endl;
+      std::cerr << "[server] on request" << std::endl;
 
       if (responses_sent == 0) {
     	  CHECK_EQ(req->method(), HTTP_GET);
     	  CHECK_EQ("/hello", req->url().path().c_str());
+    	  CHECK(req->headers().count("Accept") == 1);
+    	  CHECK(req->headers().find("Accept")->second == "*/*");
+    	  CHECK(req->headers().count("Foo") == 1);
+    	  CHECK(req->headers().find("Foo")->second == "bar");
+    	  std::cerr << "headers:" << std::endl;
+    	  for (http::headers_type::const_iterator it = req->headers().begin();
+    	      it != req->headers().end(); ++it) {
+    	    std::cerr << "  " << it->first << " = " << it->second << std::endl;
+    	  }
       }
 
       if (responses_sent == 1) {
@@ -23,8 +32,9 @@ TEST(Server) {
     	  CHECK_EQ("/world", req->url().path().c_str());
     	  server->close();
       }
+
       req->on<event::end>([&](){
-        std::cout << "[req] on end" << std::endl;
+        std::cerr << "[req] on end" << std::endl;
         res->writeHead(200, {{"Content-Type", "text/plain"}});
         res->write("The path was " + req->url().path());
         res->end();

@@ -9,13 +9,13 @@ ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
   CRUMB();
     assert(socket_);
 
-//                registerEvent<native::event::data>();
-//                registerEvent<native::event::end>();
-//                registerEvent<native::event::close>();
-//
-//                socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
-//                socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
-//                socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
+    registerEvent<native::event::data>();
+    registerEvent<native::event::end>();
+    registerEvent<native::event::close>();
+
+    socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
+    socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
+    socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
 }
 
 http_method ServerRequest::method() {
@@ -41,7 +41,9 @@ void ServerResponse::_implicitHeader() {};
 
 void ServerResponse::writeContinue() {}
 
-void ServerResponse::writeHead(int statusCode, const headers_type& headers) {}
+void ServerResponse::writeHead(int statusCode, const headers_type& headers) {
+  CRUMB();
+}
 
 void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPhrase
     , const headers_type& given_headers)
@@ -198,6 +200,7 @@ void ServerResponse::end(const Buffer& data)
 
 void ServerResponse::end()
 {
+  CRUMB();
   end(Buffer(nullptr));
 }
 
@@ -231,20 +234,18 @@ Server::Server()
 
           assert(req);
 
-          // Do early header processing and decide whether body should be received
+          // TODO: Do early header processing and decide whether body should be received
 
-          // Request isn't finished yet, when it ends, emit request event
-          req->on<native::event::end>([=](){
-            CRUMB();
-            // Create ServerResponse
-            ServerResponse* res = new ServerResponse(socket);
-            assert(res);
-            // Pass request and response to listener
-            emit<native::event::http::server::request>(req, res);
+          // Emit request event so user can prepare for receiving body
 
-              // TODO: handle cleanup of ServerRequest better
+          // Create ServerResponse
+          ServerResponse* res = new ServerResponse(socket);
+          assert(res);
+          // Pass request and response to listener
+          emit<native::event::http::server::request>(req, res);
+
+            // TODO: handle cleanup of ServerRequest better
 //                        delete req;
-          });
 
 //                      return 0; // Don't skip body
 //                      return 1; // Skip body
