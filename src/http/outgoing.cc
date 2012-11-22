@@ -204,7 +204,7 @@ void OutgoingMessage::destroy(const Exception& e) {
   socket_->destroy(e);
 }
 
-std::string OutgoingMessage::getHeader(const std::string& name) {
+const std::string& OutgoingMessage::getHeader(const std::string& name) {
   return message_.get_header(name);
 }
 

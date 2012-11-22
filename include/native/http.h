@@ -181,6 +181,8 @@ namespace native
 
     };
 
+    typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
+
     /**
      * This is the base class for incoming http messages (requests or responses 
      * for servers or clients respectively). These will be created by a Parser 
@@ -211,31 +213,48 @@ namespace native
 
       // TODO: add move constructor
 
-      /*
-       * Accessors
-       */
 
-      net::Socket* socket() { return socket_; }
-      int statusCode() { return message_->status(); }
-      std::string httpVersion() { return message_->version_string(); }
-      int httpVersionMajor() { return message_->version_major(); }
-      int httpVersionMinor() { return message_->version_minor(); }
+      void pause();
+      void resume();
 
       void destroy(const Exception& e) {
         socket_->destroy(e);
       }
 
+      /*
+       * Accessors
+       */
+
+      net::Socket* socket() { return socket_; }
+
+      int statusCode() { return message_->status(); }
+      const http_method& method() { return message_->method(); }
+      const detail::http_version& httpVersion() { return message_->version(); }
+      std::string httpVersionString() { return message_->version_string(); }
+      int httpVersionMajor() { return message_->version_major(); }
+      int httpVersionMinor() { return message_->version_minor(); }
+      const detail::url_obj& url() { return message_->url(); }
+
+      const headers_type& headers() { return message_->headers(); }
+      const Buffer& body() { return message_->body(); }
+      const headers_type& trailers() { return message_->trailers(); }
+
+      bool shouldKeepAlive() { return message_->should_keep_alive(); }
+      bool upgrade() { return message_->upgrade(); }
+
+      /**
+       * Called from parser to signal end of message
+       */
+      void end();
+
       // TODO: handle encoding
       //void setEncoding();
-
-      void pause();
-      void resume();
+    protected:
       void _emitPending(std::function<void()> callback);
       void _emitData(const Buffer& buf);
       void _emitEnd();
       void _addHeaderLine(const std::string& field, const std::string& value);
 
-      void end();
     };
 
     /**
@@ -244,7 +263,10 @@ namespace native
      * It implements the WritableStream interface
      *
      * Events emitted:
+     *   drain
+     *   error
      *   close - indicates connection was terminated before calling end()
+     *   pipe
      */
     class OutgoingMessage : public EventEmitter
     {
@@ -266,11 +288,63 @@ namespace native
       detail::http_message message_;
       Buffer header_;
       bool headerSent_;
+
     public:
       OutgoingMessage(net::Socket* socket_);
 
-      void destroy(const Exception& e);
+      /*
+       * WritableStream Interface
+       */
+      // TODO: handle encoding
+      void write(const Buffer& buf);
 
+      /**
+       * Signal the end of the outgoing message
+       * @param buf
+       * @return
+       */
+      bool end(const Buffer& buf);
+      bool end();
+      void destroy(const Exception& e);
+      void destroySoon(const Exception& e);
+
+      /*
+       * Write-only HTTP message interface
+       */
+
+      void method(const http_method& method);
+      void status(int code);
+      void version(const detail::http_version& version);
+      void url(const detail::url_obj& url);
+
+      void addHeaders(const headers_type& value);
+      void setHeader(const std::string& name, const std::string& value);
+      void hasHeader(const std::string& name);
+      const std::string& getHeader(const std::string& name);
+      void removeHeader(const std::string& name);
+
+      void addTrailers(const headers_type& value);
+      void setTrailer(const std::string& name, const std::string& value);
+      void hasTrailer(const std::string& name);
+      const std::string& getTrailer(const std::string& name);
+      void removeTrailer(const std::string& name);
+
+    protected:
+      /**
+       *
+       * @param firstLine
+       * @param headers
+       */
+      void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers);
+
+      detail::http_message::headers_type _renderHeaders();
+
+      void _flush();
+
+    private:
+      /*
+       * Internal
+       */
       // TODO: handle encoding
       void _send(const Buffer& buf);
 
@@ -280,43 +354,11 @@ namespace native
       // TODO: handle encoding
       void _buffer(const Buffer& buf);
 
-      /**
-       *
-       * @param firstLine
-       * @param headers
-       */
-      void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers);
-
-      void setHeader(const std::string& name, const std::string& value);
-
-      std::string getHeader(const std::string& name);
-
-      void removeHeader(const std::string& name);
-
-      detail::http_message::headers_type _renderHeaders();
-
-      // TODO: handle encoding
-      void write(const Buffer& buf);
-
-      void addTrailers(const detail::http_message::headers_type& headers);
-
-      bool end();
-      /**
-       * Signal the end of the outgoing message
-       * @param buf
-       * @return
-       */
-      bool end(const Buffer& buf);
-
       void _finish();
 
-      void _flush();
     };
 
     class Server;
-
-    typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
-
 
     class ServerRequest : public IncomingMessage
     {

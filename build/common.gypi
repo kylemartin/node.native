@@ -22,7 +22,8 @@
     'configurations': {
       'Debug': {
         'defines': [ 'DEBUG', '_DEBUG' ],
-        'cflags': [ '-g', '-O0' ],
+        'cflags': [ '-g', '-O0', '-pg' ],
+        'ldflags': [ '-pg' ],
         'conditions': [
           ['target_arch=="x64"', {
             'msvs_configuration_platform': 'x64',
@@ -40,6 +41,11 @@
             'LinkIncremental': 2, # enable incremental linking
           },
         },
+        'xcode_settings': {
+          'GCC_OPTIMIZATION_LEVEL': 0,
+          'OTHER_CFLAGS': ['-pg'],
+          'OTHER_LDFLAGS': ['-pg'],
+        }
       },
       'Release': {
         'cflags': [ '-O3', '-fdata-sections', '-ffunction-sections' ],
@@ -83,6 +89,10 @@
             'EnableCOMDATFolding': 2, # /OPT:ICF
             'LinkIncremental': 1, # disable incremental linking
           },
+        },
+        'xcode_settings': {
+          'GCC_OPTIMIZATION_LEVEL': 3,
+          'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
         },
       }
     },

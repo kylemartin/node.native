@@ -13,8 +13,11 @@ PYTHON ?= python
 
 all: native
 
-native: out/config.gypi
+native: out/Makefile out/config.gypi
 	$(MAKE) -C out
+
+out/Makefile: out/config.gypi
+	build/gyp_native -f make
 
 # out/Makefile: config.gypi 
 # 	./build/gyp_native -f make
