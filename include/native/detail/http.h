@@ -172,6 +172,17 @@ namespace native
 
             const headers_type& headers() const { return headers_; }
 
+            void set_header(const std::string& name, const std::string& value) {
+              headers_[name] = value;
+            }
+
+            void add_headers(const headers_type& value, bool append = false) {
+              for (headers_type::const_iterator it = value.begin();
+                  it != value.end(); ++it) {
+                add_header(it->first, it->second, append);
+              }
+            }
+
             void add_header(const std::string& name, const std::string& value, bool append = false) {
               headers_[name] = (has_header(name) && append) ? headers_[name] + "," + value : value;
             }
@@ -195,6 +206,16 @@ namespace native
 
             const headers_type& trailers() const { return trailers_; }
 
+            void set_trailer(const std::string& name, const std::string& value) {
+              trailers_[name] = value;
+            }
+
+            void add_trailers(const headers_type& value, bool append = false) {
+              for (headers_type::const_iterator it = value.begin();
+                  it != value.end(); ++it) {
+                add_trailer(it->first, it->second, append);
+              }
+            }
             void add_trailer(const std::string& name, const std::string& value, bool append = false) {
               trailers_[name] = (has_header(name) && append) ? trailers_[name] + "," + value : value;
             }

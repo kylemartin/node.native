@@ -4,6 +4,7 @@ var http = require('http');
 
 common.catch_errors(function(){
 
+
 var spawn = require('child_process').spawn,
     child;
 
@@ -14,6 +15,12 @@ var kill = function() {
   }
 };
 
+process.on('uncaughtException', function(err) {
+	console.log('uncaught: ' + err + '\n' + err.stack);
+	kill();
+	process.exit(-1);
+});
+
 child = common.runTest(process.argv[2],process.argv.slice(3));
 
 console.log("Running test: " + process.argv.slice(2).join(" "));
@@ -22,6 +29,12 @@ console.log("Running test: " + process.argv.slice(2).join(" "));
 var responses_recvd = 0;
 var body0 = '';
 var body1 = '';
+
+function handle_error(err) {
+	console.log((('code' in err) ? 'Error code: ' + err.code + '\n' : '') + err); 
+  if (typeof req !== 'undefined') req.abort();
+	// process.exit(-1);
+}
 
 var agent = new http.Agent({ port: common.PORT, maxSockets: 1 });
 setTimeout(function() {
@@ -36,8 +49,10 @@ setTimeout(function() {
     responses_recvd += 1;
     res.setEncoding('utf8');
     res.on('data', function(chunk) { body0 += chunk; });
+    res.on('error', handle_error);
     console.log('Got /hello response');
-  });
+  })
+  .on('error',handle_error);
 }, 1000);
 
 setTimeout(function() {
@@ -52,8 +67,10 @@ setTimeout(function() {
     responses_recvd += 1;
     res.setEncoding('utf8');
     res.on('data', function(chunk) { body1 += chunk; });
+    res.on('error', handle_error);
     console.log('Got /world response');
   });
+  req.on('error', handle_error);
   req.end();
 }, 2000);
 

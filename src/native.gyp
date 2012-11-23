@@ -10,6 +10,7 @@
       'sources': [
         'native.cc',
         'timers.cc',
+        'net.cc',
         'detail/handle.cc',
         'detail/node.cc',
         'detail/pipe.cc',

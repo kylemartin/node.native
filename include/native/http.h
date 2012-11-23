@@ -8,6 +8,8 @@
 #include "net.h"
 #include "process.h"
 
+#define CRLF "\r\n"
+
 /*
 # HTTP #
 
@@ -227,6 +229,7 @@ namespace native
 
       net::Socket* socket() { return socket_; }
 
+      // Read-only HTTP message
       int statusCode() { return message_->status(); }
       const http_method& method() { return message_->method(); }
       const detail::http_version& httpVersion() { return message_->version(); }
@@ -242,6 +245,12 @@ namespace native
       bool shouldKeepAlive() { return message_->should_keep_alive(); }
       bool upgrade() { return message_->upgrade(); }
 
+      const std::string& getHeader(const std::string& name) {
+        return message_->get_header(name);
+      }
+      const std::string& getTrailer(const std::string& name) {
+        return message_->get_trailer(name);
+      }
       /**
        * Called from parser to signal end of message
        */
@@ -272,7 +281,7 @@ namespace native
     {
     protected:
       net::Socket* socket_;
-      Buffer output_;
+      std::vector<Buffer> output_; // TODO: make Buffer vector-like for easier output buffering
       // TODO: handle output encodings
       bool writable_;
       bool last_;
@@ -297,6 +306,7 @@ namespace native
        */
       // TODO: handle encoding
       void write(const Buffer& buf);
+      void write(const std::string& str);
 
       /**
        * Signal the end of the outgoing message
@@ -306,7 +316,6 @@ namespace native
       bool end(const Buffer& buf);
       bool end();
       void destroy(const Exception& e);
-      void destroySoon(const Exception& e);
 
       /*
        * Write-only HTTP message interface
@@ -341,6 +350,9 @@ namespace native
 
       void _flush();
 
+      // TODO: handle encoding
+      void _writeRaw(const Buffer& buf);
+
     private:
       /*
        * Internal
@@ -348,14 +360,13 @@ namespace native
       // TODO: handle encoding
       void _send(const Buffer& buf);
 
-      // TODO: handle encoding
-      void _writeRaw(const Buffer& buf);
 
       // TODO: handle encoding
       void _buffer(const Buffer& buf);
 
       void _finish();
 
+      virtual void _implicitHeader() {};
     };
 
     class Server;
@@ -382,32 +393,11 @@ namespace native
 
         virtual ~ServerResponse() {}
 
-    private:
-
-        virtual void _implicitHeader();
-
     public:
+        void _implicitHeader();
         void writeContinue();
         void writeHead(int statusCode, const std::string& reasonPhrase, const headers_type& headers);
-        void writeHead(int statusCode, const headers_type& headers);
-
-        int statusCode() const;
-        void statusCode(int value); // calling this after response was sent is error
-
-        void setHeader(const std::string& name, const std::string& value);
-        std::string getHeader(const std::string& name, const std::string& default_value=std::string());
-        bool getHeader(const std::string& name, std::string& value);
-        bool removeHeader(const std::string& name);
-
-        void write(const Buffer& data);
-
-        void write(const std::string& data);
-
-        void addTrailers(const headers_type& headers);
-
-        void end(const Buffer& data);
-
-        void end();
+        void writeHead(int statusCode, const headers_type& headers = headers_type());
     };
 
     class Server : public net::Server

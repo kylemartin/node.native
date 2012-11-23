@@ -23,8 +23,301 @@ static std::string utcDate() {
   return std::string(date);
 }
 
-void OutgoingMessage::_storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {
 
+OutgoingMessage::OutgoingMessage(net::Socket* socket_)
+  : socket_(socket_),
+    output_(),
+    writable_(true),
+    last_(false),
+    chunkedEncoding_(false),
+    useChunkedEncodingByDefault_(true),
+    sendDate_(false),
+    hasBody_(false),
+    expectContinue_(false),
+    sent100_(false),
+    shouldKeepAlive_(false),
+    trailer_(),
+    finished_(false),
+    message_(),
+    header_(),
+    headerSent_(false)
+{ CRUMB(); }
+
+// TODO: handle encoding
+void OutgoingMessage::write(const Buffer& buf) {
+CRUMB();
+
+//js:  if (!this._header) {
+//js:    this._implicitHeader();
+//js:  }
+  // if headers not yet sent, send implicit header
+  if (!this->headerSent_ && this->header_.size() <= 0) {
+    this->_implicitHeader();
+  }
+
+//js:  if (!this._hasBody) {
+//js:    debug('This type of response MUST NOT have a body. ' +
+//js:          'Ignoring write() calls.');
+//js:    return true;
+//js:  }
+  // ignore if this type of response MUST NOT have a body
+  if (this->hasBody_) {
+    // TODO: error or ignore and log
+    return;
+  }
+
+//js:  if (chunk.length === 0) return false;
+//js:
+//js:  var len, ret;
+//js:  if (this.chunkedEncoding) {
+  // if chunked encoding enabled
+  if (this->chunkedEncoding_) {
+//js:    if (typeof(chunk) === 'string') {
+//js:      len = Buffer.byteLength(chunk, encoding);
+//js:      chunk = len.toString(16) + CRLF + chunk + CRLF;
+//js:      ret = this._send(chunk, encoding);
+//js:    } else {
+//js:      // buffer
+//js:      len = chunk.length;
+//js:      this._send(len.toString(16) + CRLF);
+//js:      this._send(chunk);
+//js:      ret = this._send(CRLF);
+//js:    }
+    // _send(...) length of buffer in hex followed by CRLF
+    // TODO: optimize prepending chunk size to Buffer
+    std::stringstream ss;
+    ss << std::hex << buf.size() << CRLF;
+    this->_send(Buffer(ss.str()));
+    this->_send(buf);
+    this->_send(Buffer(CRLF));
+  } else {
+//js:  } else {
+//js:    ret = this._send(chunk, encoding);
+//js:  }
+  // otherwise just _send(...) buffer
+    this->_send(buf);
+  }
+//js:  debug('write ret = ' + ret);
+//js:  return ret;
+  // return result of send(s)
+}
+
+void OutgoingMessage::write(const std::string& str) {
+  this->write(Buffer(str));
+}
+
+bool OutgoingMessage::end()
+{
+  CRUMB();
+  return end(Buffer(nullptr));
+}
+/**
+ * Signal the end of the outgoing message
+ * @param buf
+ * @return
+ */
+bool OutgoingMessage::end(const Buffer& buf) {
+        CRUMB();
+        assert(socket_);
+
+        if(socket_->end(buf))
+        {
+          CRUMB();
+            socket_ = nullptr;
+        }
+        else
+        {
+          CRUMB();
+            emit<native::event::error>(Exception("Failed to close the socket."));
+        }
+  return false;
+
+//js:  if (this.finished) {
+//js:    return false;
+//js:  }
+//js:  if (!this._header) {
+//js:    this._implicitHeader();
+//js:  }
+//js:
+//js:  if (data && !this._hasBody) {
+//js:    debug('This type of response MUST NOT have a body. ' +
+//js:          'Ignoring data passed to end().');
+//js:    data = false;
+//js:  }
+//js:
+//js:  var ret;
+//js:
+//js:  var hot = this._headerSent === false &&
+//js:            typeof(data) === 'string' &&
+//js:            data.length > 0 &&
+//js:            this.output.length === 0 &&
+//js:            this.connection &&
+//js:            this.connection.writable &&
+//js:            this.connection._httpMessage === this;
+//js:
+//js:  if (hot) {
+//js:    // Hot path. They're doing
+//js:    //   res.writeHead();
+//js:    //   res.end(blah);
+//js:    // HACKY.
+//js:
+//js:    if (this.chunkedEncoding) {
+//js:      var l = Buffer.byteLength(data, encoding).toString(16);
+//js:      ret = this.connection.write(this._header + l + CRLF +
+//js:                                  data + '\r\n0\r\n' +
+//js:                                  this._trailer + '\r\n', encoding);
+//js:    } else {
+//js:      ret = this.connection.write(this._header + data, encoding);
+//js:    }
+//js:    this._headerSent = true;
+//js:
+//js:  } else if (data) {
+//js:    // Normal body write.
+//js:    ret = this.write(data, encoding);
+//js:  }
+//js:
+//js:  if (!hot) {
+//js:    if (this.chunkedEncoding) {
+//js:      ret = this._send('0\r\n' + this._trailer + '\r\n'); // Last chunk.
+//js:    } else {
+//js:      // Force a flush, HACK.
+//js:      ret = this._send('');
+//js:    }
+//js:  }
+//js:
+//js:  this.finished = true;
+//js:
+//js:  // There is the first message on the outgoing queue, and we've sent
+//js:  // everything to the socket.
+//js:  debug('outgoing message end.');
+//js:  if (this.output.length === 0 && this.connection._httpMessage === this) {
+//js:    this._finish();
+//js:  }
+//js:
+//js:  return ret;
+#if 0
+  // TODO: handle encoding
+  if (finished_) { return false; }
+  if (!_header) { // headers not yet sent
+    // _storeHeader not yet called
+    _implicitHeader();
+  }
+  if (data && !_hasBody) {
+    // This type of message should not have a body
+    data.clear();
+  }
+
+  bool hot = _headerSent == false
+      && data.size() > 0
+      && output.size() == 0
+      && socket_
+      && socket_->writable()
+      && socket_->_httpMessage == this;
+
+  if (hot) {
+    // Hot path. They're doing
+    //   res.writeHead()
+    //   res.end(blah)
+    // HACKY.
+
+    if (chunkedEncoding_) {
+      // TODO: do this without stringstream
+      std::stringstream ss;
+      ss << _header << std::hex << data.size() << "\r\n"
+        << data << "\r\n0\r\n"
+        << _trailer << "\r\n";
+      ret - socket_->write(ss.str());
+    } else {
+      ret = socket_->write(header_ + data);
+    }
+    _headerSent = true;
+  } else if (data.size() > 0) {
+    // Normal body write
+    ret = write(data);
+  }
+
+  if (!hot) {
+    if (chunkedEncoding_) {
+      ret = _send("0\r\n" + _trailer + "\r\n");
+    } else {
+      // Force a flush, HACK.
+      ret = _send("");
+    }
+  }
+
+  _finished = true;
+  if (output.size() == 0 && socket_->_httpMessage == this) {
+    _finish();
+  }
+
+  return ret;
+#endif
+}
+
+void OutgoingMessage::destroy(const Exception& e) {
+  CRUMB();
+  socket_->destroy(e);
+}
+
+void OutgoingMessage::method(const http_method& method) {
+  this->message_.method(method);
+}
+
+void OutgoingMessage::status(int value) { 
+  // calling this after response was sent is error
+  this->message_.status(value); 
+}
+
+void OutgoingMessage::version(const detail::http_version& version) {
+  this->message_.version(version);
+}
+
+void OutgoingMessage::url(const detail::url_obj& url) {
+  this->message_.url(url);
+}
+
+void OutgoingMessage::addHeaders(const headers_type& value) {
+  this->message_.add_headers(value);
+}
+
+void OutgoingMessage::setHeader(const std::string& name, const std::string& value) {
+  // TODO: throw if headers already sent
+  this->message_.set_header(name, value);
+}
+
+void OutgoingMessage::hasHeader(const std::string& name) {
+  this->message_.has_header(name);
+}
+
+const std::string& OutgoingMessage::getHeader(const std::string& name) {
+  return this->message_.get_header(name);
+}
+
+void OutgoingMessage::removeHeader(const std::string& name) {
+  // TODO: throw if headers already sent
+  this->message_.remove_header(name);
+}
+
+
+void OutgoingMessage::addTrailers(const headers_type& value) {
+  this->message_.add_trailers(value);
+}
+
+void OutgoingMessage::setTrailer(const std::string& name, const std::string& value) {
+  this->message_.set_trailer(name, value);
+}
+void OutgoingMessage::hasTrailer(const std::string& name) {
+  this->message_.has_trailer(name);
+}
+const std::string& OutgoingMessage::getTrailer(const std::string& name) {
+  return this->message_.get_trailer(name);
+}
+void OutgoingMessage::removeTrailer(const std::string& name) {
+  this->message_.remove_trailer(name);
+}
+
+void OutgoingMessage::_storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {
+  CRUMB();
   bool sentConnectionHeader = false;
   bool sentContentLengthHeader = false;
   bool sentTransferEncodingHeader = false;
@@ -103,216 +396,13 @@ void OutgoingMessage::_storeHeader(const std::string& firstLine, const detail::h
   if (sentExpect) this->_send(Buffer(""));
 }
 
-// TODO: handle encoding
-void OutgoingMessage::_send(const Buffer& buf) {
-
-  // This is a shameful hack to get the headers and first body chunk onto
-  // the same packet. Future versions of Node are going to take care of
-  // this at a lower level and in a more general way.
-//  if (!this->headerSent_) {
-//    if (typeof data === 'string') {
-//      data = this._header + data;
-//    } else {
-//      this.output.unshift(this._header);
-//      this.outputEncodings.unshift('ascii');
-//    }
-//    this._headerSent = true;
-//  }
-//  return this._writeRaw(data, encoding);
-}
-
-// TODO: handle encoding
-void OutgoingMessage::_writeRaw(const Buffer& buf) {
-
-//  if (data.length === 0) {
-//    return true;
-//  }
-//
-//  if (this.connection &&
-//      this.connection._httpMessage === this &&
-//      this.connection.writable) {
-//    // There might be pending data in the this.output buffer.
-//    while (this.output.length) {
-//      if (!this.connection.writable) {
-//        this._buffer(data, encoding);
-//        return false;
-//      }
-//      var c = this.output.shift();
-//      var e = this.outputEncodings.shift();
-//      this.connection.write(c, e);
-//    }
-//
-//    // Directly write to socket.
-//    return this.connection.write(data, encoding);
-//  } else {
-//    this._buffer(data, encoding);
-//    return false;
-//  }
-}
-
-// TODO: handle encoding
-void OutgoingMessage::_buffer(const Buffer& buf) {
-
-//  if (data.length === 0) return;
-//
-//  var length = this.output.length;
-//
-//  if (length === 0 || typeof data != 'string') {
-//    this.output.push(data);
-//    this.outputEncodings.push(encoding);
-//    return false;
-//  }
-//
-//  var lastEncoding = this.outputEncodings[length - 1];
-//  var lastData = this.output[length - 1];
-//
-//  if ((encoding && lastEncoding === encoding) ||
-//      (!encoding && data.constructor === lastData.constructor)) {
-//    this.output[length - 1] = lastData + data;
-//    return false;
-//  }
-//
-//  this.output.push(data);
-//  this.outputEncodings.push(encoding);
-//
-//  return false;
-}
-
-
-void OutgoingMessage::setHeader(const std::string& name, const std::string& value) {}
-
-OutgoingMessage::OutgoingMessage(net::Socket* socket_)
-  : socket_(socket_),
-    output_(),
-    writable_(true),
-    last_(false),
-    chunkedEncoding_(false),
-    useChunkedEncodingByDefault_(true),
-    sendDate_(false),
-    hasBody_(false),
-    expectContinue_(false),
-    sent100_(false),
-    shouldKeepAlive_(false),
-    trailer_(),
-    finished_(false),
-    message_(),
-    header_(),
-    headerSent_(false)
-{}
-
-void OutgoingMessage::destroy(const Exception& e) {
-  socket_->destroy(e);
-}
-
-const std::string& OutgoingMessage::getHeader(const std::string& name) {
-  return message_.get_header(name);
-}
-
-void OutgoingMessage::removeHeader(const std::string& name) {
-  message_.remove_header(name);
-}
-
 detail::http_message::headers_type OutgoingMessage::_renderHeaders() {
+  CRUMB();
   return message_.headers();
 }
 
-// TODO: handle encoding
-void OutgoingMessage::write(const Buffer& buf) {
-
-  // if headers not yet sent, send implicit header
-  // ignore if this type of response MUST NOT have a body
-  // ignore if given buffer is empty
-
-  // if chunked encoding enabled
-    // _send(...) length of buffer in hex followed by CRLF
-    // _send(...) buffer followed by CRLF
-  // otherwise just _send(...) buffer
-  // return result of send(s)
-}
-
-void OutgoingMessage::addTrailers(const detail::http_message::headers_type& headers) {}
-
-bool OutgoingMessage::end() { return false; }
-/**
- * Signal the end of the outgoing message
- * @param buf
- * @return
- */
-bool OutgoingMessage::end(const Buffer& buf) {
-        CRUMB();
-  return false;
-#if 0
-  // TODO: handle encoding
-  if (finished_) { return false; }
-  if (!_header) { // headers not yet sent
-    // _storeHeader not yet called
-    _implicitHeader();
-  }
-  if (data && !_hasBody) {
-    // This type of message should not have a body
-    data.clear();
-  }
-
-  bool hot = _headerSent == false
-      && data.size() > 0
-      && output.size() == 0
-      && socket_
-      && socket_->writable()
-      && socket_->_httpMessage == this;
-
-  if (hot) {
-    // Hot path. They're doing
-    //   res.writeHead()
-    //   res.end(blah)
-    // HACKY.
-
-    if (chunkedEncoding_) {
-      // TODO: do this without stringstream
-      std::stringstream ss;
-      ss << _header << std::hex << data.size() << "\r\n"
-        << data << "\r\n0\r\n"
-        << _trailer << "\r\n";
-      ret - socket_->write(ss.str());
-    } else {
-      ret = socket_->write(header_ + data);
-    }
-    _headerSent = true;
-  } else if (data.size() > 0) {
-    // Normal body write
-    ret = write(data);
-  }
-
-  if (!hot) {
-    if (chunkedEncoding_) {
-      ret = _send("0\r\n" + _trailer + "\r\n");
-    } else {
-      // Force a flush, HACK.
-      ret = _send("");
-    }
-  }
-
-  _finished = true;
-  if (output.size() == 0 && socket_->_httpMessage == this) {
-    _finish();
-  }
-
-  return ret;
-#endif
-}
-
-void OutgoingMessage::_finish() {
-  assert(socket_);
-  // TODO: Port DTrace
-//        if (this instanceof ServerResponse) {
-//        DTRACE_HTTP_SERVER_RESPONSE(this.connection);
-//        } else {
-//        assert(this instanceof ClientRequest);
-//        DTRACE_HTTP_CLIENT_REQUEST(this, this.connection);
-//        }
-  emit<native::event::http::finish>();
-}
-
 void OutgoingMessage::_flush() {
+  CRUMB();
   // This logic is probably a bit confusing. Let me explain a bit:
   //
   // In both HTTP servers and clients it is possible to queue up several
@@ -332,27 +422,144 @@ void OutgoingMessage::_flush() {
   //
   // This function, outgoingFlush(), is called by both the Server and Client
   // to attempt to flush any pending messages out to the socket.
-//
-//  if (!this.socket) return;
-//
-//  var ret;
-//  while (this.output.length) {
-//
-//    if (!this.socket.writable) return; // XXX Necessary?
-//
-//    var data = this.output.shift();
-//    var encoding = this.outputEncodings.shift();
-//
-//    ret = this.socket.write(data, encoding);
-//  }
-//
-//  if (this.finished) {
-//    // This is a queue to the server or client to bring in the next this.
-//    this._finish();
-//  } else if (ret) {
-//    // This is necessary to prevent https from breaking
-//    this.emit('drain');
-//  }
+//js:
+//js:  if (!this.socket) return;
+//js:
+//js:  var ret;
+//js:  while (this.output.length) {
+//js:
+//js:    if (!this.socket.writable) return; // XXX Necessary?
+//js:
+//js:    var data = this.output.shift();
+//js:    var encoding = this.outputEncodings.shift();
+//js:
+//js:    ret = this.socket.write(data, encoding);
+//js:  }
+//js:
+//js:  if (this.finished) {
+//js:    // This is a queue to the server or client to bring in the next this.
+//js:    this._finish();
+//js:  } else if (ret) {
+//js:    // This is necessary to prevent https from breaking
+//js:    this.emit('drain');
+//js:  }
+}
+
+// TODO: handle encoding
+void OutgoingMessage::_send(const Buffer& buf) {
+  CRUMB();
+  // This is a shameful hack to get the headers and first body chunk onto
+  // the same packet. Future versions of Node are going to take care of
+  // this at a lower level and in a more general way.
+//js:  if (!this._headerSent) {
+  if (!this->headerSent_) {
+    // TODO: handle output buffering
+//js:    if (typeof data === 'string') {
+//js:      data = this._header + data;
+//js:    } else {
+//js:      this.output.unshift(this._header);
+//js:      this.outputEncodings.unshift('ascii');
+//js:    }
+//js:    this._headerSent = true;
+
+    Buffer out(
+        std::string(this->header_.base(),this->header_.size()) +
+        std::string(buf.base(), buf.size())
+    );
+
+    this->headerSent_ = true;
+
+    return this->_writeRaw(out);
+//js:  }
+  }
+//js:  return this._writeRaw(data, encoding);
+    return this->_writeRaw(buf);
+}
+
+// TODO: handle encoding
+void OutgoingMessage::_writeRaw(const Buffer& buf) {
+  CRUMB();
+//js:  if (data.length === 0) {
+//js:    return true;
+//js:  }
+  if (buf.size() <= 0) return;
+
+//js:  if (this.connection &&
+//js:      this.connection._httpMessage === this &&
+//js:      this.connection.writable) {
+  if (this->socket_ && this->socket_->writable()) {
+//js:    // There might be pending data in the this.output buffer.
+//js:    while (this.output.length) {
+//js:      if (!this.connection.writable) {
+//js:        this._buffer(data, encoding);
+//js:        return false;
+//js:      }
+//js:      var c = this.output.shift();
+//js:      var e = this.outputEncodings.shift();
+//js:      this.connection.write(c, e);
+//js:    }
+      // TODO: handle output buffering
+//js:    // Directly write to socket.
+//js:    return this.connection.write(data, encoding);
+    DBG("Writing: " << std::string(buf.base(), buf.size()));
+    this->socket_->write(buf);
+//js:  } else {
+  } else {
+//js:    this._buffer(data, encoding);
+//js:    return false;
+    this->_buffer(buf);
+//js:  }
+  }
+}
+
+// TODO: handle encoding
+void OutgoingMessage::_buffer(const Buffer& buf) {
+  CRUMB();
+
+//js:  if (data.length === 0) return;
+  if (buf.size() <= 0) return;
+//js:  var length = this.output.length;
+//js:
+//js:  if (length === 0 || typeof data != 'string') {
+  if (this->output_.size() == 0) {
+//js:    this.output.push(data);
+//js:    this.outputEncodings.push(encoding);
+//js:    return false;
+    this->output_.push_back(buf);
+    return;
+//js:  }
+  }
+
+//js:  var lastEncoding = this.outputEncodings[length - 1];
+//js:  var lastData = this.output[length - 1];
+//js:
+//js:  if ((encoding && lastEncoding === encoding) ||
+//js:      (!encoding && data.constructor === lastData.constructor)) {
+      // If same encoding as last, append to previous buffer
+//js:    this.output[length - 1] = lastData + data;
+//js:    return false;
+//js:  }
+  // TODO: handle multiple encodings in output
+
+//js:  this.output.push(data);
+//js:  this.outputEncodings.push(encoding);
+//js:
+//js:  return false;
+  this->output_.push_back(buf);
+  return;
+}
+
+void OutgoingMessage::_finish() {
+  CRUMB();
+  assert(socket_);
+  // TODO: Port DTrace
+//js:        if (this instanceof ServerResponse) {
+//js:        DTRACE_HTTP_SERVER_RESPONSE(this.connection);
+//js:        } else {
+//js:        assert(this instanceof ClientRequest);
+//js:        DTRACE_HTTP_CLIENT_REQUEST(this, this.connection);
+//js:        }
+  emit<native::event::http::finish>();
 }
 
 } //namespace http

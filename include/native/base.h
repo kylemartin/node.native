@@ -14,10 +14,14 @@
 #include <tuple>
 #include <iostream>
 
-#ifndef __DEBUG_HELPERS__
-#define __DEBUG_HELPERS__
+#ifdef DEBUG
 #define DBG(msg) std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl;
-#define CRUMB() std::cerr << __FILE__ << ":" << __LINE__ << "> " << __FUNCTION__ << std::endl;
+#define CRUMB() std::cerr << __FILE__ << ":" << __LINE__ << "> " << __PRETTY_FUNCTION__ << std::endl;
+#define TRACE(exp) DBG(#exp) exp;
+#else
+#define DBG(msg)
+#define CRUMB()
+#define TRACE(exp) exp;
 #endif
 
 #endif

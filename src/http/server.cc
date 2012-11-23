@@ -25,6 +25,7 @@ detail::url_obj ServerRequest::url() {
   return message_->url();
 }
 
+
 ServerResponse::ServerResponse(net::Socket* socket)
     : OutgoingMessage(socket)
 {
@@ -35,20 +36,31 @@ ServerResponse::ServerResponse(net::Socket* socket)
     registerEvent<native::event::error>();
 
     socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
+
+    this->status(200);
 }
 
-void ServerResponse::_implicitHeader() {};
+void ServerResponse::_implicitHeader() {
+  this->writeHead(this->message_.status());
+};
 
-void ServerResponse::writeContinue() {}
+void ServerResponse::writeContinue() {
 
-void ServerResponse::writeHead(int statusCode, const headers_type& headers) {
+//  this._writeRaw('HTTP/1.1 100 Continue' + CRLF + CRLF, 'ascii');
+//  this._sent100 = true;
   CRUMB();
+  this->_writeRaw(Buffer("HTTP/1.1 100 Continue" CRLF CRLF));
+}
+
+void ServerResponse::writeHead(int statusCode, const headers_type& given_headers) {
+  CRUMB();
+  writeHead(statusCode, "", given_headers);
 }
 
 void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPhrase
     , const headers_type& given_headers)
 {
-
+  CRUMB();
   //  var reasonPhrase, headers, headerIndex;
   //
   //  if (typeof arguments[1] == 'string') {
@@ -100,7 +112,7 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
   // only progressive api is used
   headers_type headers = this->_renderHeaders();
 
-  this->statusCode(statusCode);
+  this->status(statusCode);
   if (!given_headers.empty() && !this->message_.headers().empty()) {
     // Slow-case: when progressive API and header fields are passed.
     headers.insert(given_headers.begin(), given_headers.end());
@@ -113,7 +125,7 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
   //  var statusLine = 'HTTP/1.1 ' + statusCode.toString() + ' ' +
   //                   reasonPhrase + CRLF;
   //
-  std::string statusLine = "HTTP/1.1" + std::to_string(statusCode) + " " + reasonPhrase + "\r\n";
+  std::string statusLine = "HTTP/1.1 " + std::to_string(statusCode) + " " + reasonPhrase + CRLF;
 
 //  if (statusCode === 204 || statusCode === 304 ||
 //      (100 <= statusCode && statusCode <= 199)) {
@@ -156,52 +168,8 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
     this->shouldKeepAlive_ = false;
   }
 //  this._storeHeader(statusLine, headers);
+  CRUMB();
   this->_storeHeader(statusLine, headers);
-}
-
-int ServerResponse::statusCode() const { return 0; }
-void ServerResponse::statusCode(int value) {} // calling this after response was sent is error
-
-void ServerResponse::setHeader(const std::string& name, const std::string& value) {}
-std::string ServerResponse::getHeader(const std::string& name, const std::string& default_value) { return default_value; }
-bool ServerResponse::getHeader(const std::string& name, std::string& value) { return false; }
-bool ServerResponse::removeHeader(const std::string& name) { return false; }
-
-void ServerResponse::write(const Buffer& data)
-{
-  CRUMB();
-    socket_->write(data);
-}
-
-void ServerResponse::write(const std::string& data)
-{
-  CRUMB();
-  socket_->write(Buffer(data));
-}
-
-void ServerResponse::addTrailers(const headers_type& headers) {}
-
-void ServerResponse::end(const Buffer& data)
-{
-  CRUMB();
-    assert(socket_);
-
-    if(socket_->end(data))
-    {
-      CRUMB();
-        socket_ = nullptr;
-    }
-    else
-    {
-      CRUMB();
-        emit<native::event::error>(Exception("Failed to close the socket."));
-    }
-}
-
-void ServerResponse::end()
-{
-  CRUMB();
-  end(Buffer(nullptr));
 }
 
 Server::Server()

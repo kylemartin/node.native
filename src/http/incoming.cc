@@ -13,6 +13,7 @@ IncomingMessage::IncomingMessage(net::Socket* socket, detail::http_message* mess
 , endEmitted_(false)
 , message_(message)
 {
+  CRUMB();
   registerEvent<native::event::end>();
 }
 
@@ -33,18 +34,17 @@ IncomingMessage::IncomingMessage(net::Socket* socket, detail::http_message* mess
 //      , method_(o.method_)
 //      {}
 
-void IncomingMessage::pause() {}
-void IncomingMessage::resume() {}
-void IncomingMessage::_emitPending(std::function<void()> callback) {}
-void IncomingMessage::_emitData(const Buffer& buf) {}
-void IncomingMessage::_emitEnd() {}
-void IncomingMessage::_addHeaderLine(const std::string& field, const std::string& value) {}
+void IncomingMessage::pause() { CRUMB(); }
+void IncomingMessage::resume() { CRUMB(); }
+void IncomingMessage::_emitPending(std::function<void()> callback) { CRUMB(); }
+void IncomingMessage::_emitData(const Buffer& buf) { CRUMB(); }
+void IncomingMessage::_emitEnd() { CRUMB(); }
+void IncomingMessage::_addHeaderLine(const std::string& field, const std::string& value) { CRUMB(); }
 
 void IncomingMessage::end() {
   CRUMB();
   if (haveListener<native::event::end>()) {
-    CRUMB();
-    emit<native::event::end>();
+    TRACE(emit<native::event::end>())
   }
 }
 

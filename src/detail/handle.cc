@@ -6,6 +6,7 @@ namespace native
     {
             void handle::close()
             {
+              CRUMB();
                 if(!handle_) return;
 
                 uv_close(handle_, [](uv_handle_t* h) {

@@ -20,6 +20,8 @@ TEST(Server) {
     	  CHECK(req->headers().find("Accept")->second == "*/*");
     	  CHECK(req->headers().count("Foo") == 1);
     	  CHECK(req->headers().find("Foo")->second == "bar");
+        CHECK(req->headers().count("Connection") == 1);
+        CHECK(req->headers().find("Connection")->second == "keep-alive");
     	  std::cerr << "headers:" << std::endl;
     	  for (http::headers_type::const_iterator it = req->headers().begin();
     	      it != req->headers().end(); ++it) {
@@ -30,15 +32,27 @@ TEST(Server) {
       if (responses_sent == 1) {
     	  CHECK_EQ(req->method(), HTTP_POST);
     	  CHECK_EQ("/world", req->url().path().c_str());
-    	  server->close();
+        CHECK(req->headers().count("Connection") == 1);
+        CHECK(req->headers().find("Connection")->second == "keep-alive");
+        CHECK(req->headers().count("Transfer-Encoding") == 1);
+        CHECK(req->headers().find("Transfer-Encoding")->second == "chunked");
+        std::cerr << "headers:" << std::endl;
+        for (http::headers_type::const_iterator it = req->headers().begin();
+            it != req->headers().end(); ++it) {
+          std::cerr << "  " << it->first << " = " << it->second << std::endl;
+        }
       }
 
-      req->on<event::end>([&](){
+      req->on<event::end>([=, &responses_sent](){
         std::cerr << "[req] on end" << std::endl;
         res->writeHead(200, {{"Content-Type", "text/plain"}});
         res->write("The path was " + req->url().path());
+        CRUMB();
         res->end();
+        CRUMB();
         responses_sent += 1;
+        if (responses_sent == 2)
+          server->close();
       });
 //
 //      /**
