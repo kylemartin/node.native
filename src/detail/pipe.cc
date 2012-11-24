@@ -1,5 +1,5 @@
 
-#include "native.h"
+#include "native/detail/pipe.h"
 
 namespace native
 {

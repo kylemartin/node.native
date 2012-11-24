@@ -66,16 +66,29 @@ namespace native
 
   namespace event { namespace http {
     namespace client {
-      struct connect : public util::callback_def<native::http::ClientResponse*, net::Socket*, const Buffer&> {};
-      struct upgrade : public util::callback_def<native::http::ClientResponse*, net::Socket*, const Buffer&> {};
-      struct response : public util::callback_def<native::http::ClientResponse*> {};
+      struct connect
+          : public util::callback_def<native::http::ClientResponse*,
+            net::Socket*, const Buffer&> {};
+      struct upgrade
+          : public util::callback_def<native::http::ClientResponse*,
+            net::Socket*, const Buffer&> {};
+      struct response
+          : public util::callback_def<native::http::ClientResponse*> {};
     }
 
     namespace server {
-      struct connect : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
-      struct upgrade : public util::callback_def<native::http::ServerRequest*, net::Socket*, const Buffer&> {};
-      struct request : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
-      struct checkContinue : public util::callback_def<native::http::ServerRequest*, native::http::ServerResponse*> {};
+      struct connect
+          : public util::callback_def<native::http::ServerRequest*,
+            net::Socket*, const Buffer&> {};
+      struct upgrade
+          : public util::callback_def<native::http::ServerRequest*,
+            net::Socket*, const Buffer&> {};
+      struct request
+          : public util::callback_def<native::http::ServerRequest*,
+            native::http::ServerResponse*> {};
+      struct checkContinue
+          : public util::callback_def<native::http::ServerRequest*,
+            native::http::ServerResponse*> {};
     }
     struct socket : public util::callback_def<net::Socket*> {};
     struct Continue : public util::callback_def<>{};
@@ -83,7 +96,7 @@ namespace native
   }}
 
   namespace http {
-
+    using detail::headers_type;
     /**
      * Factory for constructing Parser instances managing a parsing context.
      *
@@ -94,7 +107,7 @@ namespace native
      * starting to receive a message and implements the the logic for a handling
      * an incoming request/response.
      */
-    class Parser {
+class Parser {
     public:
       /**
        * Callback that must be registered to allow construction of classes
@@ -107,7 +120,8 @@ namespace native
        * which can in turn be passed in a request/response event so the user can
        * register event handlers on the IncomingMessage.
        */
-      typedef std::function<IncomingMessage*(net::Socket*, detail::http_message*)> on_incoming_type;
+      typedef std::function<IncomingMessage*(net::Socket*,
+          detail::http_message*)> on_incoming_type;
 
       typedef std::shared_ptr<Parser> ptr;
 
@@ -141,7 +155,7 @@ namespace native
 
       /**
        * Private constructor
-       * @param type   http_parser_type value (HTTP_REQUEST,HTTP_RESPONSE,HTTP_BOTH)
+       * @param type   http_parser_type value (HTTP_{REQUEST,RESPONSE,BOTH})
        * @param socket net::Socket to be read by parser
        */
       Parser(http_parser_type type, net::Socket* socket);
@@ -183,8 +197,6 @@ namespace native
 
     };
 
-    typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
-
     /**
      * This is the base class for incoming http messages (requests or responses 
      * for servers or clients respectively). These will be created by a Parser 
@@ -206,7 +218,7 @@ namespace native
       bool complete_;
       bool readable_;
       bool paused_;
-      detail::http_message::headers_type pendings_;
+      headers_type pendings_;
       bool endEmitted_;
       detail::http_message* message_;
 
@@ -281,7 +293,8 @@ namespace native
     {
     protected:
       net::Socket* socket_;
-      std::vector<Buffer> output_; // TODO: make Buffer vector-like for easier output buffering
+      // TODO: make Buffer vector-like for easier output buffering
+      std::vector<Buffer> output_;
       // TODO: handle output encodings
       bool writable_;
       bool last_;
@@ -344,9 +357,10 @@ namespace native
        * @param firstLine
        * @param headers
        */
-      void _storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers);
+      void _storeHeader(const std::string& firstLine,
+          const headers_type& headers);
 
-      detail::http_message::headers_type _renderHeaders();
+      headers_type _renderHeaders();
 
       void _flush();
 
@@ -396,8 +410,10 @@ namespace native
     public:
         void _implicitHeader();
         void writeContinue();
-        void writeHead(int statusCode, const std::string& reasonPhrase, const headers_type& headers);
-        void writeHead(int statusCode, const headers_type& headers = headers_type());
+        void writeHead(int statusCode, const std::string& reasonPhrase,
+            const headers_type& headers);
+        void writeHead(int statusCode,
+            const headers_type& headers = headers_type());
     };
 
     class Server : public net::Server
@@ -430,12 +446,15 @@ namespace native
       /**
        * Construct a ClientRequest for the given url
        *
-       * Unlike node.js, we do not accept an options map. Instead users socket must set parameters like method, headers, etc. on the request socket object itself.
+       * Unlike node.js, we do not accept an options map. Instead users socket
+       * must set parameters like method, headers, etc. on the request socket
+       * object itself.
        *
        * @param url
        * @param callback
        */
-      ClientRequest(detail::url_obj url, std::function<void(ClientResponse*)> callback = nullptr);
+      ClientRequest(detail::url_obj url,
+          std::function<void(ClientResponse*)> callback = nullptr);
 
       virtual ~ClientRequest() {}
 
@@ -470,9 +489,11 @@ namespace native
 
     Server* createServer();
 
-    ClientRequest* request(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr);
+    ClientRequest* request(const std::string& url_string,
+        std::function<void(ClientResponse*)> callback = nullptr);
 
-    ClientRequest* get(const std::string& url_string, std::function<void(ClientResponse*)> callback = nullptr);
+    ClientRequest* get(const std::string& url_string,
+        std::function<void(ClientResponse*)> callback = nullptr);
   }
 }
 

@@ -1,6 +1,6 @@
 #include <chrono>
 
-#include "native.h"
+#include "native/timers.h"
 
 // TODO: is this the best way to get current time?
 static int64_t get_time_milliseconds() {
@@ -23,6 +23,8 @@ namespace native {
 
     timers::map_type timers::map_;
 
+
+  timer::~timer() { std::cerr << "~timer()" << std::endl; };
 
   void timer::handle_timeout_(uv_timer_t* handle, int status) {
     std::cerr << "timer::handle_timeout_" << std::endl;

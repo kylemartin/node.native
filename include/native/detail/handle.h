@@ -3,58 +3,35 @@
 
 #include "base.h"
 
-namespace native
-{
-    namespace detail
-    {
-        class handle
-        {
-        protected:
-            handle(uv_handle_t* handle)
-                : handle_(handle)
-                , unref_(false)
-            {
-                assert(handle_);
-            }
+namespace native {
+namespace detail {
 
-            virtual ~handle()
-            {
-            }
+class handle {
+protected:
+  handle(uv_handle_t* handle);
 
-        public:
-            virtual void ref()
-            {
-                if(!unref_) return;
-                unref_ = false;
-                uv_ref(handle_);
-            }
+  virtual ~handle();
 
-            virtual void unref()
-            {
-                if(unref_) return;
-                unref_ = true;
-                uv_unref(handle_);
-            }
+public:
+  virtual void ref();
 
-            virtual void set_handle(uv_handle_t* h)
-            {
-                handle_ = h;
-                handle_->data = this;
-            }
+  virtual void unref();
 
-            // Note that the handle object itself is deleted in a deferred callback of uv_close() invoked in this function.
-            virtual void close();
+  virtual void set_handle(uv_handle_t* h);
 
-            virtual void state_change() {}
+  // Note that the handle object itself is deleted in a deferred callback of uv_close() invoked in this function.
+  virtual void close();
 
-            uv_handle_t* uv_handle() { return handle_; }
-            const uv_handle_t* uv_handle() const { return handle_; }
+  virtual void state_change();
 
-        private:
-            uv_handle_t* handle_;
-            bool unref_;
-        };
-    }
+  uv_handle_t* uv_handle();
+  const uv_handle_t* uv_handle() const;
+
+private:
+  uv_handle_t* handle_;
+  bool unref_;
+};
+}
 }
 
 #endif

@@ -2,7 +2,7 @@
 #include <regex>
 #include <ctime>
 
-#include "native.h"
+#include "native/http.h"
 
 namespace native { namespace http {
 
@@ -316,7 +316,7 @@ void OutgoingMessage::removeTrailer(const std::string& name) {
   this->message_.remove_trailer(name);
 }
 
-void OutgoingMessage::_storeHeader(const std::string& firstLine, const detail::http_message::headers_type& headers) {
+void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_type& headers) {
   CRUMB();
   bool sentConnectionHeader = false;
   bool sentContentLengthHeader = false;
@@ -396,7 +396,7 @@ void OutgoingMessage::_storeHeader(const std::string& firstLine, const detail::h
   if (sentExpect) this->_send(Buffer(""));
 }
 
-detail::http_message::headers_type OutgoingMessage::_renderHeaders() {
+headers_type OutgoingMessage::_renderHeaders() {
   CRUMB();
   return message_.headers();
 }

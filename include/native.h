@@ -11,6 +11,7 @@
 
 #include "native/base.h"
 #include "native/detail.h"
+#include "native/timers.h"
 #include "native/net.h"
 #include "native/http.h"
 #include "native/tty.h"
@@ -28,10 +29,7 @@ namespace native
      *
      *  @return             This function always returns 0.
      */
-    inline int run(std::function<void()> callback)
-    {
-        return detail::node::instance().start(callback);
-    }
+    int run(std::function<void()> callback);
 }
 
 #endif

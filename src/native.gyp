@@ -16,6 +16,7 @@
         'detail/pipe.cc',
         'detail/stream.cc',
         'detail/tcp.cc',
+        'detail/http.cc',
         'http/client.cc',
         'http/incoming.cc',
         'http/outgoing.cc',
