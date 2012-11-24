@@ -27,6 +27,7 @@ public:
   std::string schema() const;
   std::string host() const;
   int port() const;
+  std::string path_query_fragment() const;
   std::string path() const;
   std::string query() const;
   std::string fragment() const;

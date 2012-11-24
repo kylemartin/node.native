@@ -9,7 +9,7 @@ TEST(Socket) {
 	int clientConnected = 0;
 	run([&](){
 		auto cb = [&](net::Socket* socket){
-			socket->connect("127.0.0.1", common::PORT, [&](){
+			socket->connect("127.0.0.1", COMMON_PORT, [&](){
 				std::cout << "client connected" << std::endl;
 				++clientConnected;
 			});

@@ -326,8 +326,8 @@ class Parser {
        * @param buf
        * @return
        */
-      bool end(const Buffer& buf);
-      bool end();
+      void end(const Buffer& buf);
+      void end();
       void destroy(const Exception& e);
 
       /*
@@ -352,6 +352,7 @@ class Parser {
       void removeTrailer(const std::string& name);
 
     protected:
+      virtual void _implicitHeader() {}
       /**
        *
        * @param firstLine
@@ -379,8 +380,6 @@ class Parser {
       void _buffer(const Buffer& buf);
 
       void _finish();
-
-      virtual void _implicitHeader() {};
     };
 
     class Server;
@@ -476,15 +475,15 @@ class Parser {
 
       void on_socket_connect();
 
-      static void on_socket_drain();
+      void on_socket_drain();
 
-      static void on_socket_error(const Exception& e);
+      void on_socket_error(const Exception& e);
 
       void on_socket_data(const Buffer& buf);
 
-      static void on_socket_end();
+      void on_socket_end();
 
-      static void on_socket_close();
+      void on_socket_close();
     };
 
     Server* createServer();

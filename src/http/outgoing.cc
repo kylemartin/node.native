@@ -106,45 +106,56 @@ void OutgoingMessage::write(const std::string& str) {
   this->write(Buffer(str));
 }
 
-bool OutgoingMessage::end()
+void OutgoingMessage::end()
 {
   CRUMB();
-  return end(Buffer(nullptr));
+  end(Buffer(nullptr));
 }
 /**
  * Signal the end of the outgoing message
  * @param buf
  * @return
  */
-bool OutgoingMessage::end(const Buffer& buf) {
+void OutgoingMessage::end(const Buffer& buf) {
         CRUMB();
-        assert(socket_);
-
-        if(socket_->end(buf))
-        {
-          CRUMB();
-            socket_ = nullptr;
-        }
-        else
-        {
-          CRUMB();
-            emit<native::event::error>(Exception("Failed to close the socket."));
-        }
-  return false;
-
+//        assert(socket_);
+//
+//        if(socket_->end(buf))
+//        {
+//          CRUMB();
+//            socket_ = nullptr;
+//        }
+//        else
+//        {
+//          CRUMB();
+//            emit<native::event::error>(Exception("Failed to close the socket."));
+//        }
+//  return false;
+        Buffer data(buf);
 //js:  if (this.finished) {
 //js:    return false;
 //js:  }
+        // TODO: handle encoding
+        if (this->finished_) {
+          return;
+        }
 //js:  if (!this._header) {
 //js:    this._implicitHeader();
 //js:  }
-//js:
+        if (this->header_.size() <= 0) {
+          // headers not yet sent
+          // _storeHeader not yet called
+          this->_implicitHeader();
+        }
 //js:  if (data && !this._hasBody) {
 //js:    debug('This type of response MUST NOT have a body. ' +
 //js:          'Ignoring data passed to end().');
 //js:    data = false;
 //js:  }
-//js:
+        if (data.size() > 0 && !this->hasBody_) {
+          DBG("Response MUST NOT have a body");
+          data = Buffer();
+        }
 //js:  var ret;
 //js:
 //js:  var hot = this._headerSent === false &&
@@ -154,8 +165,14 @@ bool OutgoingMessage::end(const Buffer& buf) {
 //js:            this.connection &&
 //js:            this.connection.writable &&
 //js:            this.connection._httpMessage === this;
-//js:
+        bool hot = !this->headerSent_ &&
+            data.size() > 0 &&
+            this->output_.size() == 0 &&
+            this->socket_ &&
+            this->socket_->writable();
 //js:  if (hot) {
+
+        if (hot) {
 //js:    // Hot path. They're doing
 //js:    //   res.writeHead();
 //js:    //   res.end(blah);
@@ -175,7 +192,32 @@ bool OutgoingMessage::end(const Buffer& buf) {
 //js:    // Normal body write.
 //js:    ret = this.write(data, encoding);
 //js:  }
-//js:
+          // Hot path. They're doing
+          //   res.writeHead()
+          //   res.end(blah)
+          // HACKY.
+
+          if (this->chunkedEncoding_) {
+            CRUMB()
+            // TODO: do this without stringstream
+            std::stringstream ss;
+            ss << std::string(header_.base(), header_.size())
+              << std::hex << data.size() << CRLF
+              << std::string(data.base(),data.size()) << CRLF << 0 << CRLF
+              << std::string(trailer_.base(), trailer_.size()) << CRLF;
+            socket_->write(Buffer(ss.str()));
+          } else {
+            CRUMB();
+            socket_->write(Buffer(std::string(header_.base(), header_.size()) +
+                std::string(data.base(),data.size())));
+          }
+          this->headerSent_ = true;
+        } else if (data.size() > 0) {
+          CRUMB();
+          // Normal body write
+          write(data);
+        }
+
 //js:  if (!hot) {
 //js:    if (this.chunkedEncoding) {
 //js:      ret = this._send('0\r\n' + this._trailer + '\r\n'); // Last chunk.
@@ -184,9 +226,21 @@ bool OutgoingMessage::end(const Buffer& buf) {
 //js:      ret = this._send('');
 //js:    }
 //js:  }
-//js:
 //js:  this.finished = true;
-//js:
+        if (!hot) {
+          CRUMB();
+          if (this->chunkedEncoding_) {
+            CRUMB();
+            this->_send(Buffer(std::string("0") + CRLF +
+                std::string(this->trailer_.base(), this->trailer_.size()) + CRLF
+            )); // Last chunk
+          } else {
+            CRUMB();
+            // Force a flush, HACK.
+            this->_send(Buffer());
+          }
+        }
+        this->finished_ = true;
 //js:  // There is the first message on the outgoing queue, and we've sent
 //js:  // everything to the socket.
 //js:  debug('outgoing message end.');
@@ -195,63 +249,10 @@ bool OutgoingMessage::end(const Buffer& buf) {
 //js:  }
 //js:
 //js:  return ret;
-#if 0
-  // TODO: handle encoding
-  if (finished_) { return false; }
-  if (!_header) { // headers not yet sent
-    // _storeHeader not yet called
-    _implicitHeader();
-  }
-  if (data && !_hasBody) {
-    // This type of message should not have a body
-    data.clear();
-  }
-
-  bool hot = _headerSent == false
-      && data.size() > 0
-      && output.size() == 0
-      && socket_
-      && socket_->writable()
-      && socket_->_httpMessage == this;
-
-  if (hot) {
-    // Hot path. They're doing
-    //   res.writeHead()
-    //   res.end(blah)
-    // HACKY.
-
-    if (chunkedEncoding_) {
-      // TODO: do this without stringstream
-      std::stringstream ss;
-      ss << _header << std::hex << data.size() << "\r\n"
-        << data << "\r\n0\r\n"
-        << _trailer << "\r\n";
-      ret - socket_->write(ss.str());
-    } else {
-      ret = socket_->write(header_ + data);
-    }
-    _headerSent = true;
-  } else if (data.size() > 0) {
-    // Normal body write
-    ret = write(data);
-  }
-
-  if (!hot) {
-    if (chunkedEncoding_) {
-      ret = _send("0\r\n" + _trailer + "\r\n");
-    } else {
-      // Force a flush, HACK.
-      ret = _send("");
-    }
-  }
-
-  _finished = true;
-  if (output.size() == 0 && socket_->_httpMessage == this) {
-    _finish();
-  }
-
-  return ret;
-#endif
+        DBG("Outgoing message end");
+        if (this->output_.size() == 0) {
+          this->_finish();
+        }
 }
 
 void OutgoingMessage::destroy(const Exception& e) {
@@ -422,19 +423,30 @@ void OutgoingMessage::_flush() {
   //
   // This function, outgoingFlush(), is called by both the Server and Client
   // to attempt to flush any pending messages out to the socket.
-//js:
+
 //js:  if (!this.socket) return;
-//js:
+  if (!this->socket_) return;
 //js:  var ret;
+  bool ret = false;
 //js:  while (this.output.length) {
+  for (std::vector<Buffer>::iterator it = this->output_.begin();
+      it != this->output_.end(); ++it) {
 //js:
 //js:    if (!this.socket.writable) return; // XXX Necessary?
+    if (!this->socket_->writable()) return;
 //js:
 //js:    var data = this.output.shift();
 //js:    var encoding = this.outputEncodings.shift();
 //js:
 //js:    ret = this.socket.write(data, encoding);
+    ret = this->socket_->write(*it);
 //js:  }
+  }
+  if (this->finished_) {
+    this->_finish();
+  } else if (ret) {
+    this->emit<event::drain>();
+  }
 //js:
 //js:  if (this.finished) {
 //js:    // This is a queue to the server or client to bring in the next this.
@@ -453,6 +465,7 @@ void OutgoingMessage::_send(const Buffer& buf) {
   // this at a lower level and in a more general way.
 //js:  if (!this._headerSent) {
   if (!this->headerSent_) {
+    CRUMB();
     // TODO: handle output buffering
 //js:    if (typeof data === 'string') {
 //js:      data = this._header + data;
@@ -552,6 +565,7 @@ void OutgoingMessage::_buffer(const Buffer& buf) {
 void OutgoingMessage::_finish() {
   CRUMB();
   assert(socket_);
+  socket_->end();
   // TODO: Port DTrace
 //js:        if (this instanceof ServerResponse) {
 //js:        DTRACE_HTTP_SERVER_RESPONSE(this.connection);

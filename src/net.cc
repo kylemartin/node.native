@@ -121,6 +121,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
   if(!stream_) throw Exception("This socket is closed.");
 
   stream_->on_complete([=](detail::resval r) {
+    CRUMB();
     if(destroyed_) return;
 
     if(!r)
@@ -141,6 +142,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
       destroy();
     }
   });
+
   detail::resval rv = stream_->write(buffer.base(), 0, buffer.size());
   if(!rv)
   {
@@ -149,6 +151,8 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
   }
 
   pending_write_reqs_++;
+
+  CRUMB();
 
   return stream_->write_queue_size() == 0;
 }

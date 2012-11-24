@@ -110,7 +110,7 @@ TEST(Server) {
 //      std::cout << "[server] on clientError: " << e.message() << std::endl;
 //    });
 
-    server->listen(common::PORT, "127.0.0.1");
+    server->listen(COMMON_PORT, "127.0.0.1");
   });
   CHECK(responses_sent == 2);
 }

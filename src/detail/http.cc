@@ -45,6 +45,25 @@ int url_obj::port() const {
   return 0;
 }
 
+std::string url_obj::path_query_fragment() const {
+  std::string res;
+  uint16_t beg = 0, end = 0;
+  if (has_path()) {
+    beg = handle_.field_data[UF_PATH].off;
+    end = beg + handle_.field_data[UF_PATH].len;
+    if (has_query()) {
+      end = handle_.field_data[UF_QUERY].off + handle_.field_data[UF_QUERY].len;
+    }
+    if (has_fragment()) {
+      end = handle_.field_data[UF_FRAGMENT].off +
+          handle_.field_data[UF_FRAGMENT].len;
+    }
+    return buf_.substr(beg,end);
+  } else {
+    return "/";
+  }
+}
+
 std::string url_obj::path() const {
   if (has_path())
     return buf_.substr(handle_.field_data[UF_PATH].off,

@@ -6,8 +6,7 @@ namespace http {
 ClientResponse::ClientResponse(net::Socket* socket,
     detail::http_message* message) :
     IncomingMessage(socket, message) {
-  CRUMB()
-  ;
+  CRUMB();
   assert(socket);
   registerEvent<native::event::data>();
   registerEvent<native::event::end>();
@@ -16,16 +15,15 @@ ClientResponse::ClientResponse(net::Socket* socket,
 
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
-    OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_(), path_(
-        url.has_path() ? url.path() : "/") {
-  CRUMB()
-  ;
+    OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_(),
+    path_(url.path_query_fragment()) {
+  CRUMB();
   registerEvent<native::event::http::socket>();
-  registerEvent<native::event::http::client::response>();
-  registerEvent<native::event::error>();
   registerEvent<event::connect>();
   registerEvent<native::event::http::client::upgrade>();
   registerEvent<native::event::http::Continue>();
+  registerEvent<native::event::http::client::response>();
+  registerEvent<native::event::error>();
 
   int port = url.has_port() ? url.port() : 80;
   std::string host = url.has_host() ? url.host() : "127.0.0.1"; // "localhost";
@@ -56,8 +54,7 @@ ClientRequest::ClientRequest(detail::url_obj url,
 }
 
 void ClientRequest::abort() {
-  CRUMB()
-  ;
+  CRUMB();
   if (socket_) { // in-progress
     socket_->destroy();
   } else {
@@ -78,24 +75,86 @@ void ClientRequest::setSocketKeepAlive(bool enable, int64_t initialDelay) {
 }
 
 void ClientRequest::_implicitHeader() {
-  CRUMB()
-  ;
+  CRUMB();
   _storeHeader(
       std::string(http_method_str(method_)) + " " + path_ + " HTTP/1.1\r\n",
       _renderHeaders());
 }
 
 void ClientRequest::_deferToConnect(std::function<void()> callback) {
-  CRUMB()
-  ;
+  CRUMB();
   // if no socket then setup socket event handler
   // if not yet connected setup connect event handler
   // otherwise already connected so run callback
+
+
+//js:  ClientRequest.prototype._deferToConnect = function(method, arguments_, cb) {
+//js:    // This function is for calls that need to happen once the socket is
+//js:    // connected and writable. It's an important promisy thing for all the socket
+//js:    // calls that happen either now (when a socket is assigned) or
+//js:    // in the future (when a socket gets assigned out of the pool and is
+//js:    // eventually writable).
+//js:    var self = this;
+//js:    var onSocket = function() {
+//js:      if (self.socket.writable) {
+//js:        if (method) {
+//js:          self.socket[method].apply(self.socket, arguments_);
+//js:        }
+//js:        if (cb) { cb(); }
+//js:      } else {
+//js:        self.socket.once('connect', function() {
+//js:          if (method) {
+//js:            self.socket[method].apply(self.socket, arguments_);
+//js:          }
+//js:          if (cb) { cb(); }
+//js:        });
+//js:      }
+//js:    }
+//js:    if (!self.socket) {
+//js:      self.once('socket', onSocket);
+//js:    } else {
+//js:      onSocket();
+//js:    }
+//js:  };
 }
 
 void ClientRequest::init_socket() {
-  CRUMB()
-  ;
+  CRUMB();
+//js:  ClientRequest.prototype.onSocket = function(socket) {
+//js:    var req = this;
+//js:
+//js:    process.nextTick(function() {
+//js:      var parser = parsers.alloc();
+//js:      req.socket = socket;
+//js:      req.connection = socket;
+//js:      parser.reinitialize(HTTPParser.RESPONSE);
+//js:      parser.socket = socket;
+//js:      parser.incoming = null;
+//js:      req.parser = parser;
+//js:
+//js:      socket.parser = parser;
+//js:      socket._httpMessage = req;
+//js:
+//js:      // Setup "drain" propogation.
+//js:      httpSocketSetup(socket);
+//js:
+//js:      // Propagate headers limit from request object to parser
+//js:      if (typeof req.maxHeadersCount === 'number') {
+//js:        parser.maxHeaderPairs = req.maxHeadersCount << 1;
+//js:      } else {
+//js:        // Set default value because parser may be reused from FreeList
+//js:        parser.maxHeaderPairs = 2000;
+//js:      }
+//js:
+//js:      socket.on('error', socketErrorListener);
+//js:      socket.ondata = socketOnData;
+//js:      socket.onend = socketOnEnd;
+//js:      socket.on('close', socketCloseListener);
+//js:      parser.onIncoming = parserOnIncomingClient;
+//js:      req.emit('socket', socket);
+//js:    });
+//js:
+//js:  };
   process::nextTick([this]() {
     // TODO: check if allocated Parser is leaking
       Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
@@ -108,20 +167,30 @@ void ClientRequest::init_socket() {
       socket_->on<native::event::connect>([this]() {
             this->on_socket_connect();
           });
-      socket_->on<native::event::drain>(on_socket_drain);
-      socket_->on<native::event::error>(on_socket_error);
+      socket_->on<native::event::drain>([this]() {
+            this->on_socket_drain();
+          });
+      socket_->on<native::event::error>([this](const Exception& e) {
+            this->on_socket_error(e);
+          });
       socket_->on<native::event::data>([this](const Buffer& buf) {
             this->on_socket_data(buf);
           });
-      socket_->on<native::event::end>(on_socket_end);
-      socket_->on<native::event::close>(on_socket_close);
+      socket_->on<native::event::end>([this]() {
+            this->on_socket_end();
+          });
+      socket_->on<native::event::close>([this]() {
+            this->on_socket_close();
+          });
 
       // set on incoming callback on parser
       parser->on_incoming([this](net::Socket* socket,
           detail::http_message* message) {
+            CRUMB();
             IncomingMessage* result = new ClientResponse(socket, message);
             this->on_incoming_message(result);
             return result;
+
           });
 
       // Emit socket event
@@ -130,8 +199,7 @@ void ClientRequest::init_socket() {
 }
 
 void ClientRequest::on_incoming_message(IncomingMessage* msg) {
-  CRUMB()
-  ;
+  CRUMB();
   ClientResponse* res = static_cast<ClientResponse*>(msg);
 
   // if already created response then server sent double response
@@ -151,47 +219,241 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
   res->on<native::event::end>([this]() {
     this->on_response_end();
   });
+//js:            function parserOnIncomingClient(res, shouldKeepAlive) {
+//js:              var parser = this;
+//js:              var socket = this.socket;
+//js:              var req = socket._httpMessage;
+//js:
+//js:              debug('AGENT incoming response!');
+//js:
+//js:              if (req.res) {
+//js:                // We already have a response object, this means the server
+//js:                // sent a double response.
+//js:                socket.destroy();
+//js:                return;
+//js:              }
+//js:              req.res = res;
+//js:
+//js:              // Responses to CONNECT request is handled as Upgrade.
+//js:              if (req.method === 'CONNECT') {
+//js:                res.upgrade = true;
+//js:                return true; // skip body
+//js:              }
+//js:
+//js:              // Responses to HEAD requests are crazy.
+//js:              // HEAD responses aren't allowed to have an entity-body
+//js:              // but *can* have a content-length which actually corresponds
+//js:              // to the content-length of the entity-body had the request
+//js:              // been a GET.
+//js:              var isHeadResponse = req.method == 'HEAD';
+//js:              debug('AGENT isHeadResponse ' + isHeadResponse);
+//js:
+//js:              if (res.statusCode == 100) {
+//js:                // restart the parser, as this is a continue message.
+//js:                delete req.res; // Clear res so that we don't hit double-responses.
+//js:                req.emit('continue');
+//js:                return true;
+//js:              }
+//js:
+//js:              if (req.shouldKeepAlive && !shouldKeepAlive && !req.upgradeOrConnect) {
+//js:                // Server MUST respond with Connection:keep-alive for us to enable it.
+//js:                // If we've been upgraded (via WebSockets) we also shouldn't try to
+//js:                // keep the connection open.
+//js:                req.shouldKeepAlive = false;
+//js:              }
+//js:
+//js:
+//js:              DTRACE_HTTP_CLIENT_RESPONSE(socket, req);
+//js:              req.emit('response', res);
+//js:              req.res = res;
+//js:              res.req = req;
+//js:
+//js:              res.on('end', responseOnEnd);
+//js:
+//js:              return isHeadResponse;
+//js:            }
+//js:
+//js:            function responseOnEnd() {
+//js:              var res = this;
+//js:              var req = res.req;
+//js:              var socket = req.socket;
+//js:
+//js:              if (!req.shouldKeepAlive) {
+//js:                if (socket.writable) {
+//js:                  debug('AGENT socket.destroySoon()');
+//js:                  socket.destroySoon();
+//js:                }
+//js:                assert(!socket.writable);
+//js:              } else {
+//js:                debug('AGENT socket keep-alive');
+//js:                socket.removeListener('close', socketCloseListener);
+//js:                socket.removeListener('error', socketErrorListener);
+//js:                socket.emit('free');
+//js:              }
+//js:            }
 }
 
 void ClientRequest::on_response_end() {
+  CRUMB();
   // TODO: handle keep-alive after response end
+//js:  function socketOnEnd() {
+//js:    var socket = this;
+//js:    var req = this._httpMessage;
+//js:    var parser = this.parser;
+//js:
+//js:    if (!req.res) {
+//js:      // If we don't have a response then we know that the socket
+//js:      // ended prematurely and we need to emit an error on the request.
+//js:      req.emit('error', createHangUpError());
+//js:      req._hadError = true;
+//js:    }
+//js:    if (parser) {
+//js:      parser.finish();
+//js:      freeParser(parser, req);
+//js:    }
+//js:    socket.destroy();
+//js:  }
 }
 
 void ClientRequest::on_socket_connect() {
-  CRUMB()
-  ;
+  CRUMB();
   assert(socket_);
 }
 
 void ClientRequest::on_socket_drain() {
-  CRUMB()
-  ;
+  CRUMB();
 }
 
 void ClientRequest::on_socket_error(const Exception& e) {
-  CRUMB()
-  ;
+  CRUMB();
+
+//js:  function socketErrorListener(err) {
+//js:    var socket = this;
+//js:    var parser = socket.parser;
+//js:    var req = socket._httpMessage;
+//js:    debug('HTTP SOCKET ERROR: ' + err.message + '\n' + err.stack);
+//js:
+//js:    if (req) {
+//js:      req.emit('error', err);
+//js:      // For Safety. Some additional errors might fire later on
+//js:      // and we need to make sure we don't double-fire the error event.
+//js:      req._hadError = true;
+//js:    }
+//js:
+//js:    if (parser) {
+//js:      parser.finish();
+//js:      freeParser(parser, req);
+//js:    }
+//js:    socket.destroy();
+//js:  }
 }
 
 void ClientRequest::on_socket_data(const Buffer& buf) {
-  CRUMB()
-  ;
+  CRUMB();
+//js:  function socketOnData(d, start, end) {
+//js:    var socket = this;
+//js:    var req = this._httpMessage;
+//js:    var parser = this.parser;
+//js:
+//js:    var ret = parser.execute(d, start, end - start);
+//js:    if (ret instanceof Error) {
+//js:      debug('parse error');
+//js:      freeParser(parser, req);
+//js:      socket.destroy(ret);
+//js:    } else if (parser.incoming && parser.incoming.upgrade) {
+//js:      // Upgrade or CONNECT
+//js:      var bytesParsed = ret;
+//js:      var res = parser.incoming;
+//js:      req.res = res;
+//js:
+//js:      socket.ondata = null;
+//js:      socket.onend = null;
+//js:      parser.finish();
+//js:
+//js:      // This is start + byteParsed
+//js:      var bodyHead = d.slice(start + bytesParsed, end);
+//js:
+//js:      var eventName = req.method === 'CONNECT' ? 'connect' : 'upgrade';
+//js:      if (req.listeners(eventName).length) {
+//js:        req.upgradeOrConnect = true;
+//js:
+//js:        // detach the socket
+//js:        socket.emit('agentRemove');
+//js:        socket.removeListener('close', socketCloseListener);
+//js:        socket.removeListener('error', socketErrorListener);
+//js:
+//js:        req.emit(eventName, res, socket, bodyHead);
+//js:        req.emit('close');
+//js:      } else {
+//js:        // Got Upgrade header or CONNECT method, but have no handler.
+//js:        socket.destroy();
+//js:      }
+//js:      freeParser(parser, req);
+//js:    } else if (parser.incoming && parser.incoming.complete &&
+//js:               // When the status code is 100 (Continue), the server will
+//js:               // send a final response after this client sends a request
+//js:               // body. So, we must not free the parser.
+//js:               parser.incoming.statusCode !== 100) {
+//js:      freeParser(parser, req);
+//js:    }
+//js:  }
 }
 
 void ClientRequest::on_socket_end() {
-  CRUMB()
-  ;
+  CRUMB();
+//js:  function socketOnEnd() {
+//js:    var socket = this;
+//js:    var req = this._httpMessage;
+//js:    var parser = this.parser;
+//js:
+//js:    if (!req.res) {
+//js:      // If we don't have a response then we know that the socket
+//js:      // ended prematurely and we need to emit an error on the request.
+//js:      req.emit('error', createHangUpError());
+//js:      req._hadError = true;
+//js:    }
+//js:    if (parser) {
+//js:      parser.finish();
+//js:      freeParser(parser, req);
+//js:    }
+//js:    socket.destroy();
+//js:  }
 }
 
 void ClientRequest::on_socket_close() {
-  CRUMB()
-  ;
+  CRUMB();
+//js:  function socketCloseListener() {
+//js:    var socket = this;
+//js:    var parser = socket.parser;
+//js:    var req = socket._httpMessage;
+//js:    debug('HTTP socket close');
+//js:    req.emit('close');
+//js:    if (req.res && req.res.readable) {
+//js:      // Socket closed before we emitted 'end' below.
+//js:      req.res.emit('aborted');
+//js:      var res = req.res;
+//js:      req.res._emitPending(function() {
+//js:        res._emitEnd();
+//js:        res.emit('close');
+//js:        res = null;
+//js:      });
+//js:    } else if (!req.res && !req._hadError) {
+//js:      // This socket error fired before we started to
+//js:      // receive a response. The error needs to
+//js:      // fire on the request.
+//js:      req.emit('error', createHangUpError());
+//js:    }
+//js:
+//js:    if (parser) {
+//js:      parser.finish();
+//js:      freeParser(parser, req);
+//js:    }
+//js:  }
 }
 
 ClientRequest* request(const std::string& url_string,
     std::function<void(ClientResponse*)> callback) {
-  CRUMB()
-  ;
+  CRUMB();
   detail::url_obj url;
   url.parse(url_string.c_str(), url_string.length());
 
@@ -206,8 +468,7 @@ ClientRequest* request(const std::string& url_string,
 
 ClientRequest* get(const std::string& url_string,
     std::function<void(ClientResponse*)> callback) {
-  CRUMB()
-  ;
+  CRUMB();
   ClientRequest* req = request(url_string, callback);
   req->end();
   return req;

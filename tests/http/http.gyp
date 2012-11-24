@@ -36,7 +36,8 @@
         '../common/common.gyp:cctest'
       ],
       'sources': [
-        'test-server.cc'
+        'test-server.cc',
+        'test-client.cc'
       ],
       # 'conditions': [
       #   [ 'OS=="linux"', {

@@ -34,6 +34,7 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
   , incoming_(nullptr)
   , on_incoming_()
 {
+  CRUMB();
   // wrap callbacks in closures
   context_.on_headers_complete(
     [this](){
@@ -55,7 +56,7 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       on_error(e);
     }
   );
-
+  CRUMB();
   // Register socket event handlers
   socket->on<native::event::data>([=](const Buffer& buf) {
     CRUMB();
