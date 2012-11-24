@@ -7,10 +7,10 @@ using namespace native;
 
 TEST(Server) {
   int responses_sent = 0;
-  run([&]() {
+  run([&responses_sent]() {
     http::Server* server = http::createServer();
 
-    server->on<native::event::http::server::request>([&](http::ServerRequest* req, http::ServerResponse* res){
+    server->on<native::event::http::server::request>([=, &responses_sent](http::ServerRequest* req, http::ServerResponse* res){
       std::cerr << "[server] on request" << std::endl;
 
       if (responses_sent == 0) {

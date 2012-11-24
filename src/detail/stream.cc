@@ -75,26 +75,23 @@ resval stream::write(const char* data, int offset, int length,
   buf.len = static_cast<size_t>(length);
 
   if (ipc_pipe) {
-    res =
-        uv_write2(req, stream_, &buf, 1,
-            send_stream ? send_stream->uv_stream() : nullptr,
-            [](uv_write_t* req, int status) {
-              auto self = reinterpret_cast<stream*>(req->handle->data);
-              assert(self);
-              if (self->on_complete_)
-                self->on_complete_(status?get_last_error():resval());
-              if (req) delete req;
-            }) == 0;
+    res = uv_write2(req, stream_, &buf, 1,
+        send_stream ? send_stream->uv_stream() : nullptr,
+        [](uv_write_t* req, int status) {
+          auto self = reinterpret_cast<stream*>(req->handle->data);
+          assert(self);
+          if (self->on_complete_)
+          self->on_complete_(status?get_last_error():resval());
+          if (req) delete req;
+        }) == 0;
   } else {
-    res =
-        uv_write(req, stream_, &buf, 1,
-            [](uv_write_t* req, int status) {
-              auto self = reinterpret_cast<stream*>(req->handle->data);
-              assert(self);
-              if (self->on_complete_)
-                self->on_complete_(status?get_last_error():resval());
-              if (req) delete req;
-            }) == 0;
+    res = uv_write(req, stream_, &buf, 1, [](uv_write_t* req, int status) {
+      auto self = reinterpret_cast<stream*>(req->handle->data);
+      assert(self);
+      if (self->on_complete_)
+      self->on_complete_(status?get_last_error():resval());
+      if (req) delete req;
+    }) == 0;
   }
 
   if (!res)
@@ -108,16 +105,14 @@ resval stream::shutdown() {
   auto req = new uv_shutdown_t;
   assert(req);
 
-  bool res =
-      uv_shutdown(req, stream_,
-          [](uv_shutdown_t* req, int status) {
-            CRUMB();
-            auto self = reinterpret_cast<stream*>(req->handle->data);
-            assert(self);
-            if (self->on_complete_)
-              self->on_complete_(status?get_last_error():resval());
-            delete req;
-          }) == 0;
+  bool res = uv_shutdown(req, stream_, [](uv_shutdown_t* req, int status) {
+    CRUMB();
+    auto self = reinterpret_cast<stream*>(req->handle->data);
+    assert(self);
+    if (self->on_complete_)
+    self->on_complete_(status?get_last_error():resval());
+    delete req;
+  }) == 0;
 
   if (!res)
     delete req;
@@ -134,15 +129,33 @@ resval stream::listen(int backlog) {
         {
           // error
           if (self->on_connection_)
-            self->on_connection_(nullptr, get_last_error());
+          self->on_connection_(nullptr, get_last_error());
         }
         else
         {
           // accept new socket and invoke callback with it.
           if (self->on_connection_)
-            self->on_connection_(self->accept_new_(), resval());
+          self->on_connection_(self->accept_new_(), resval());
         }
       });
+}
+
+bool stream::is_readable() const {
+  return uv_is_readable(stream_) != 0;
+}
+bool stream::is_writable() const {
+  return uv_is_writable(stream_) != 0;
+}
+
+uv_stream_t* stream::uv_stream() {
+  return stream_;
+}
+const uv_stream_t* stream::uv_stream() const {
+  return stream_;
+}
+
+stream* stream::accept_new_() {
+  return nullptr;
 }
 
 uv_buf_t stream::on_alloc(uv_handle_t* h, size_t suggested_size) {

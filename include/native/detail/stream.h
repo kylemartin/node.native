@@ -43,14 +43,14 @@ namespace native
 
             virtual resval listen(int backlog);
 
-            bool is_readable() const { return uv_is_readable(stream_) != 0; }
-            bool is_writable() const { return uv_is_writable(stream_) != 0; }
+            bool is_readable() const;
+            bool is_writable() const;
 
-            uv_stream_t* uv_stream() { return stream_; }
-            const uv_stream_t* uv_stream() const { return stream_; }
+            uv_stream_t* uv_stream();
+            const uv_stream_t* uv_stream() const;
 
         private:
-            virtual stream* accept_new_() { return nullptr; }
+            virtual stream* accept_new_();
 
             static uv_buf_t on_alloc(uv_handle_t* h, size_t suggested_size);
 
