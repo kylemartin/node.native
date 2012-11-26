@@ -12,17 +12,17 @@
         'timers.cc',
         'net.cc',
         'stream.cc',
-        'detail/handle.cc',
-        'detail/node.cc',
-        'detail/pipe.cc',
+        'detail_handle.cc',
+        'detail_node.cc',
+        'detail_pipe.cc',
         'detail_stream.cc',
-        'detail/tcp.cc',
-        'detail/http.cc',
-        'http/client.cc',
-        'http/incoming.cc',
-        'http/outgoing.cc',
-        'http/parser.cc',
-        'http/server.cc'
+        'detail_tcp.cc',
+        'detail_http.cc',
+        'http_client.cc',
+        'http_incoming.cc',
+        'http_outgoing.cc',
+        'http_parser.cc',
+        'http_server.cc'
       ],
       
       'dependencies': [
