@@ -202,6 +202,8 @@ Server::Server()
 
           assert(req);
 
+          req->parser(parser);
+
           // TODO: Do early header processing and decide whether body should be received
 
           // Emit request event so user can prepare for receiving body

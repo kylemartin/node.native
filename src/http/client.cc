@@ -83,12 +83,11 @@ void ClientRequest::_implicitHeader() {
 
 void ClientRequest::_deferToConnect(std::function<void()> callback) {
   CRUMB();
-  // if no socket then setup socket event handler
-  // if not yet connected setup connect event handler
-  // otherwise already connected so run callback
-
-
-//js:  ClientRequest.prototype._deferToConnect = function(method, arguments_, cb) {
+  /*
+   * Right now the socket is created when the request is constructed, but in the
+   * future it may be assigned from a pool, and the request will be queued, so
+   * we will need to register a socket event handler
+   */
 //js:    // This function is for calls that need to happen once the socket is
 //js:    // connected and writable. It's an important promisy thing for all the socket
 //js:    // calls that happen either now (when a socket is assigned) or
@@ -115,7 +114,14 @@ void ClientRequest::_deferToConnect(std::function<void()> callback) {
 //js:    } else {
 //js:      onSocket();
 //js:    }
-//js:  };
+
+  if (!this->socket_->connected()) {
+  // if not yet connected setup connect event handler
+    this->socket_->once<event::connect>(callback);
+  } else {
+  // otherwise already connected so run callback
+    callback();
+  }
 }
 
 void ClientRequest::init_socket() {
@@ -170,7 +176,7 @@ void ClientRequest::init_socket() {
       socket_->on<native::event::drain>([this]() {
             this->on_socket_drain();
           });
-      socket_->on<native::event::error>([this](const Exception& e) {
+      socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
             this->on_socket_error(e);
           });
       socket_->on<native::event::data>([this](const Buffer& buf) {
@@ -179,15 +185,16 @@ void ClientRequest::init_socket() {
       socket_->on<native::event::end>([this]() {
             this->on_socket_end();
           });
-      socket_->on<native::event::close>([this]() {
+      socket_close_listener_ = socket_->on<native::event::close>([this]() {
             this->on_socket_close();
           });
 
       // set on incoming callback on parser
-      parser->on_incoming([this](net::Socket* socket,
+      parser->on_incoming([=](net::Socket* socket,
           detail::http_message* message) {
             CRUMB();
             IncomingMessage* result = new ClientResponse(socket, message);
+            result->parser(parser);
             this->on_incoming_message(result);
             return result;
 
@@ -201,31 +208,8 @@ void ClientRequest::init_socket() {
 void ClientRequest::on_incoming_message(IncomingMessage* msg) {
   CRUMB();
   ClientResponse* res = static_cast<ClientResponse*>(msg);
+  net::Socket* socket = res->socket();
 
-  // if already created response then server sent double response
-  // TODO: destroy socket on double response
-//            this->response = res;
-
-  // TODO: handle response to CONNECT as UPGRADE
-
-  // TODO: handle response to HEAD request
-
-  // TODO: handle CONTINUE
-
-  // TODO: handle keep-alive
-
-  // Emit response event
-  emit<native::event::http::client::response>(res);
-  res->on<native::event::end>([this]() {
-    this->on_response_end();
-  });
-//js:            function parserOnIncomingClient(res, shouldKeepAlive) {
-//js:              var parser = this;
-//js:              var socket = this.socket;
-//js:              var req = socket._httpMessage;
-//js:
-//js:              debug('AGENT incoming response!');
-//js:
 //js:              if (req.res) {
 //js:                // We already have a response object, this means the server
 //js:                // sent a double response.
@@ -233,13 +217,20 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
 //js:                return;
 //js:              }
 //js:              req.res = res;
-//js:
+  // if already created response then server sent double response
+  if (this->received_response_) {
+    // destroy socket on double response
+    socket->destroy();
+  }
+  this->received_response_ = true;
+
 //js:              // Responses to CONNECT request is handled as Upgrade.
 //js:              if (req.method === 'CONNECT') {
 //js:                res.upgrade = true;
 //js:                return true; // skip body
 //js:              }
-//js:
+  // TODO: handle response to CONNECT as UPGRADE
+
 //js:              // Responses to HEAD requests are crazy.
 //js:              // HEAD responses aren't allowed to have an entity-body
 //js:              // but *can* have a content-length which actually corresponds
@@ -248,31 +239,40 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
 //js:              var isHeadResponse = req.method == 'HEAD';
 //js:              debug('AGENT isHeadResponse ' + isHeadResponse);
 //js:
+  // TODO: handle response to HEAD request
+
 //js:              if (res.statusCode == 100) {
 //js:                // restart the parser, as this is a continue message.
 //js:                delete req.res; // Clear res so that we don't hit double-responses.
 //js:                req.emit('continue');
 //js:                return true;
 //js:              }
-//js:
+  // TODO: handle CONTINUE
+
 //js:              if (req.shouldKeepAlive && !shouldKeepAlive && !req.upgradeOrConnect) {
 //js:                // Server MUST respond with Connection:keep-alive for us to enable it.
 //js:                // If we've been upgraded (via WebSockets) we also shouldn't try to
 //js:                // keep the connection open.
 //js:                req.shouldKeepAlive = false;
 //js:              }
-//js:
-//js:
+  // TODO: handle keep-alive
+
 //js:              DTRACE_HTTP_CLIENT_RESPONSE(socket, req);
 //js:              req.emit('response', res);
+  // Emit response event
+  emit<native::event::http::client::response>(res);
 //js:              req.res = res;
 //js:              res.req = req;
 //js:
 //js:              res.on('end', responseOnEnd);
-//js:
-//js:              return isHeadResponse;
-//js:            }
-//js:
+  res->on<native::event::end>([this]() {
+    this->on_response_end();
+  });
+
+}
+
+void ClientRequest::on_response_end() {
+  CRUMB();
 //js:            function responseOnEnd() {
 //js:              var res = this;
 //js:              var req = res.req;
@@ -291,28 +291,19 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
 //js:                socket.emit('free');
 //js:              }
 //js:            }
-}
-
-void ClientRequest::on_response_end() {
-  CRUMB();
   // TODO: handle keep-alive after response end
-//js:  function socketOnEnd() {
-//js:    var socket = this;
-//js:    var req = this._httpMessage;
-//js:    var parser = this.parser;
-//js:
-//js:    if (!req.res) {
-//js:      // If we don't have a response then we know that the socket
-//js:      // ended prematurely and we need to emit an error on the request.
-//js:      req.emit('error', createHangUpError());
-//js:      req._hadError = true;
-//js:    }
-//js:    if (parser) {
-//js:      parser.finish();
-//js:      freeParser(parser, req);
-//js:    }
-//js:    socket.destroy();
-//js:  }
+  if (!this->shouldKeepAlive_) {
+    if (this->socket_->writable()) {
+      DBG("AGENT socket.destroySoon()");
+      this->socket_->destroySoon();
+    }
+    assert(!this->socket_->writable());
+  } else {
+    DBG("AGENT socket keep-alive");
+    this->socket_->removeListener<event::close>(socket_close_listener_);
+    this->socket_->removeListener<event::error>(socket_error_listener_);
+    this->socket_->emit<native::event::free>();
+  }
 }
 
 void ClientRequest::on_socket_connect() {
@@ -346,6 +337,8 @@ void ClientRequest::on_socket_error(const Exception& e) {
 //js:    }
 //js:    socket.destroy();
 //js:  }
+
+  this->emit<event::error>(e);
 }
 
 void ClientRequest::on_socket_data(const Buffer& buf) {

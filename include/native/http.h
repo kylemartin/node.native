@@ -215,6 +215,7 @@ class Parser {
     {
     protected:
       net::Socket* socket_;
+      Parser* parser_;
       bool complete_;
       bool readable_;
       bool paused_;
@@ -238,6 +239,9 @@ class Parser {
       /*
        * Accessors
        */
+
+      void parser(Parser* parser) { parser_ = parser; }
+      Parser* parser() { return parser_; }
 
       net::Socket* socket() { return socket_; }
 
@@ -441,6 +445,10 @@ class Parser {
       headers_type headers_;
       std::string path_;
 
+      listener_t socket_error_listener_;
+      listener_t socket_close_listener_;
+
+      bool received_response_ = false;
     public:
       /**
        * Construct a ClientRequest for the given url

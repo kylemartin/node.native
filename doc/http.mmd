@@ -1,0 +1,303 @@
+
+
+HTTP Parsing, Incoming/Outgoing Messages, and Client/Server Interface
+
+- Overview
+    - HTTP requests and responses are structurally similar
+        - status line
+        - headers/trailers
+        - body
+    - IncomingMessage and OutgoingMessage encapsulate logic shared by client/server
+    - ClientRequest and ServerResponse encapsulate client/server specific logic for outgoing messages
+    - ClientResponse and ServerRequest encapsulate client/server specific logic for incoming messages
+    - Parser constructs IncomingMessage as it receives status, headers, etc.
+    - Client request processing
+        - Client invokes request(...) or get(...) to create a ClientRequest
+        - ClientRequest creates a socket (or waits to be assigned from pool)
+        - Users can then set method, status, headers, write body, etc.
+        - ClientRequest constructs a Parser to handle the response and passes it to a new ClientResponse object once incoming message parsed
+        - User callback is invoked with ClientResponse for user to check status, headers, and read body
+    - Server request processing
+        - Server creates listening socket and waits for Sockets for incoming connections
+        - For each incoming connection a Parser is created to handle the request and passed to a new ServerRequest object once incoming message parsed
+        - User callback is invoked with ServerRequest and ServerResponse for user to check/set status, headers, read/write body, etc.
+    - Chief distinction between client and server processing is that client requests are associated with a socket before its connected and responses passed to user after parsing, whereas as server requests are parsed from an already connected socket and request and response passed to user after parsing.
+
+# Node.js #
+
+## HTTP Parsing ##
+
+- Parser
+    - a js/c++ wrapper object containing an http_parser and http_parser_settings
+    - Parser hides underlying callbacks assigned to http_parser_settings
+    - Exposed callbacks
+        - on_headers
+        - on_headers_complete
+        - on_body
+        - on_message_complete
+    - http_parser_settings callbacks
+        - on_message_begin
+            - reset headers and url
+        - on_url
+            - store url
+        - on_header_field && on_header_value
+            - These collect field and value pairs into field and value lists
+        - on_headers_complete
+            - Return if no callback function
+            - Call Flush again if already called
+            - Setup message info object
+                - Store unified headers
+                - Store url if request
+                - Store method if request
+                - Store status if response
+                - Store version
+                - Store keep-alive
+                - Store upgrade
+            - Invoke callback(info)
+            - If result is null the set error flag
+            - Return result (true if skipping body)
+        - on_body
+            - call callback if registered and set flag if error in callback
+            - callback(buf, off, len)
+        - on_message_complete
+            - call Flush if there are headers
+            - call callback if registered and set flag if error in callback
+    - Methods
+        - New()
+        - Save()
+            - Copies data objects onto heap
+        - Execute(buf, off, len)
+            - call http_parser_execute
+            - call Save()
+            - Return null if error parsing
+            - If not upgrade and did not parse len bytes return parser error
+            - Otherwise return number of bytes parsed
+        - Finish()
+            - call http_parser_execute without data to finish parsing
+            - Return null if exception parsing
+            - Return error if return value indicates error
+            - Return undefined if no error
+        - Reinitialize(type)
+            - Throw if type is not request or response
+            - Call Init(type)
+        - CreateHeaders()
+            - Unify fields and values lists
+        - Flush()
+            - If on_headers callback registered then call with url and unified headers
+            - Check for error in callback and set flag
+            - Clear url and set flushed flag
+        - Init(type)
+            - call http_parser_init, reset url, headers, and flush and error flags
+
+## Common Interface ##
+
+- Both client and server will be sending and receiving messages. 
+- IncomingMessage and OutgoingMessage encapsulate message handling independent of whether the message is a HTTP request or response
+
+- IncomingMessage (documented as ServerRequest)
+    - Events
+        - data(chunk)
+        - end()
+        - close()
+    - Members
+        - method, url, headers, trailers, httpVersion, connection
+        - undocumented: readable, statusCode
+        - private: _paused, _pendings, _endEmitted
+    - Methods
+        - *setEncoding([encoding])
+        - *pause()
+        - *resume()
+        - destroy()
+        - _emitPending(callback)
+        - _emitData(d)
+        - _emitEnd()
+        - _addHeaderLine(field, value) [380]
+            - if complete then add to trailers, otherwise add to headers
+            - switch field
+                - for multiple 'set-cookie' add values to array
+                - comma separate multiples for a set of fields
+                - by default drop duplicates except for 'x-*' headers which comma separate
+- OutgoingMessage
+    - Members
+        - output[]
+        - outputEncodings[]
+        - bool writable
+        - bool _last
+        - bool chunkedEncoding
+        - bool shouldKeepAlive
+        - bool useChunkedEncodingByDefault
+        - bool sendDate
+        - bool _hasBody
+        - string _trailer
+        - bool finished
+    - Methods
+        - destroy(error): destroy socket with error
+        - _send(data, encoding)
+        - _writeRaw(data, encoding)
+        - _buffer(data, encoding)
+        - _storeHeader(firstline, headers)
+        - setHeader(name, value)
+        - getHeader(name)
+        - removeHeader(name)
+        - _renderHeaders()
+        - write(chunk, encoding)
+        - addTrailers(headers)
+        - end(data, encoding)
+        - _finish()
+        - _flush()
+
+## Server Interface
+- Server
+	- Descends from net::Server
+		- Calling listen(...) starts the server
+	- Adds its own connection event handler to accept a socket [http.js:1632]
+		- Registers drain event handler on socket to propagate event to ServerResponse attached to socket 
+		- Sets timeout on the socket
+		- Allocates a parser and assigns it to the socket
+		- Registers socket error handler which propagates a clientError event
+		- Registers socket data handler 
+			- Feeds parser data (which emits its own events as it parses)
+			- After executing parser it checks for upgrade or connect state and emits events or destroys socket
+		- Registers socket end handler [http.js:1710]
+			- Finishes parsing and cleans up state
+		- Registers socket close handler [http.js:1646]
+			- Aborts incoming message (emits aborted and close event on message)
+		- Registers onIncoming callback with parser to be called with IncomingMessage createsd after headers received
+			- Pushes message onto incoming queue
+			- Creates a ServerResponse for the message
+			- Appends the response to outgoing queue if socket already has response waiting [1748]
+			- Registers finish event handler on response
+				- Destroys socket after last message sent and outgoing queue empty
+            - If headers has expect continue then emit checkContinue or call writeContinue on response
+            - Emit request event, passing IncomingMessage and ServerResponse
+	- Events
+		- request(IncomingMessage, ServerResponse)
+		- connection(Socket)
+		- close()
+		- checkContinue(IncomingMessage, ServerResponse)
+			- This gets called when processing expect header [1779]
+		- continue(request, socket, head)
+		- upgrade(request, socket, head)
+		- clientError(exception)
+	- Methods
+		- listen(...)
+		- close()
+	- Members
+		- maxHeadersCount: gets forwarded to parsers
+        
+- IncomingMessage documented as ServerRequest
+- ServerResponse : OutgoingMessage
+    - Construction
+        - set _hasBody false if HEAD request
+        - set sendDate true
+        - disable chunked encoding and keep-alive if version < 1.1
+	- Events
+		- close()
+	- Methods
+		- writeContinue()
+            - call _writeRaw with continue line and set _send100 flag
+		- writeHead(statusCode, [reason], [headers])
+		- ^ setHeader(name, value)
+		- ^ getHeader(name)
+		- ^ removeHeader(name)
+		- ^ write(chunk, [encoding])
+		- ^ addTrailers(headers)
+        - ^ end([data], [encoding])
+        - assignSocket(socket)
+            - associate with socket if no others
+            - register close event handler on socket to propagate event
+            - call _flush()
+        - detachSocket(socket)
+            - disassociate from socket and remove close event handler            - disassociate from socket and remove close event handler
+        - _implicitHeader()
+            - call writeHead with current statusCode
+        - writeHeader is an alias to writeHead
+    - Members
+		- statusCode: controls statusCode for implicit headers
+        - bool sendDate
+        - bool _hasBody
+        - bool _sent100
+
+## Client Interface
+- request(options, callback)
+    - Constructs and returns a ClientRequest object
+    - Constructed request will have assigned socket which has started connecting
+    - Must call end() on ClientRequest to actually send request
+- get(options, callback)
+    - Calls request(options, callback) and then calls end()
+- ClientRequest : OutgoingMessage
+    - Construction
+        - Initializes defaults for host, port, method, etc
+        - Adds headers specified in options, host, and auth headers
+        - Creates a socket based on options (tcp, unix, or agent managed)
+            - Calls onSocket to initialize the socket on next tick [1473]
+            - Allocates a parser and associates it with socket and this request
+            - Registers drain event handler on socket which propagates to this request
+            - Sets maxHeaderPairs on parser
+            - Registers socket error handler
+                - Emits error, finishes parsing and frees parser, and destroy socket
+            - Registers socket data handler
+                - Parse data
+                - If error parsing then destroy socket
+                - If parser has incoming message with upgrade flag set [1361]
+                    - If there are upgrade or connect listeners
+                        - Remove close and error listeners and emit agentRemove
+                        - Emit upgrade or connect event
+                    - Otherwise destroy socket
+                    - Free parser
+                - If parser has incoming message, is complete, and status is not 100  then free parser
+            - Registers socket end handler
+                - If no response then emit hangup error
+                - If parser exists then finish and free
+                - Destroy socket
+            - Registers socket close handler [1285]
+                - Emit close event
+                - If closed before calling end on response
+                    - Emit aborted
+                    - Emit pending (data queued after IncomingMessage.pause() called)
+                    - After pending, emit end event (only once), and emit close event
+                - If no response and no error in request, emit hangup error
+                - Finish and free parser if exists
+            - Registers onIncoming callback with parser 
+                - Destroy socket if a response already created for request
+                - Handle responses to connect requests as upgrade and skip body
+                - If HEAD request then process response as normal to calculate content-length but don't send body
+                - If status is 100 then reset parser emit continue event and skip body
+                - If requested keep-alive and not set on parser or not upgrade/connect then disable keep-alive in request
+                - Emit response event
+                - Register end event handler with response
+                    - If not keep-alive and writable socket then destroySoon()
+                    - Otherwise remove close and error listeners on socket and emit free event on socket
+                - Return true if head response
+            - Emits socket event
+        - Defers till connect a call to OutgoingMessage._flush
+    - Events
+        - response(response)
+        - socket(socket)
+        - connect(response, socket, head)
+        - upgrade(response, socket, head)
+        - continue()
+    - Methods
+        - ^ write(chunk, [encoding])
+        - ^ end([data], [encoding])
+        - abort()
+        - setTimeout(timeout, [callback]) (deferred to connect)
+        - setNoDelay([noDelay]) (deferred to connect)
+        - setSocketKeepAlive (deferred to connect)
+        - _implicitHeader()
+            - calls _storeHeader with request line
+        - onSocket(socket)
+        - _deferToConnect
+        - clearTimeout(cb)
+
+- ClientResponse
+	- Descends from IncomingMessage (like ServerRequest)
+    - Events
+        - data(chunk)
+        - end()
+        - close(err)
+        - setEncoding([encoding])
+        - pause()
+        - resume()
+    - Members
+        - statusCode, httpVersion, headers, trailers,

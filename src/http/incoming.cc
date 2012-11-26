@@ -6,6 +6,7 @@ namespace http {
 
 IncomingMessage::IncomingMessage(net::Socket* socket, detail::http_message* message)
 : socket_(socket)
+, parser_(nullptr)
 , complete_(false)
 , readable_(true)
 , paused_(false)

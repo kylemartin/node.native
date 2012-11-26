@@ -255,6 +255,10 @@ public:
     return stream_;
   }
 
+  bool connected() {
+    // TODO: figure out better way to determine connected state
+    return (stream_ && !connecting_ && !destroyed_ && (readable() || writable()));
+  }
 private:
   void init_socket(detail::stream* stream);
 

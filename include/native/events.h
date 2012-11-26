@@ -199,6 +199,14 @@ namespace native
          *  @code void callback() @endcode
          */
         struct resume: public util::callback_def<> {};
+        /**
+         *  @brief 'free' event.
+         *
+         *  @remark
+         *  Callback function has the following signature.
+         *  @code void callback() @endcode
+         */
+        struct free: public util::callback_def<> {};
     }
 
     /**
