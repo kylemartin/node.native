@@ -50,15 +50,17 @@ enum http_version {
 
 typedef std::map<std::string, std::string, util::text::ci_less> headers_type;
 /**
- * An http_message encapsulates headers, body, etc. shared by
+ * An http_message encapsulates status line and headers shared by
  * request and response messages. It is used during parsing to hold
  * message details for an incoming message. It is also used to prepare
  * an outgoing message for transmission.
  *
+ * It does not store the message body as this will be received asynchronously.
+ * It does allow a content length to be set when the body length is known.
+ *
  * Consists of:
  * - the first line (version and method for request, status for response)
  * - leading headers
- * - an optional body
  * - optional trailing headers (for chunked encoding)
  */
 class http_message {
@@ -82,7 +84,7 @@ private:
   bool upgrade_;
   bool should_keep_alive_;
 
-  Buffer body_;
+  size_t length_;
 
 public:
   http_message();
@@ -136,8 +138,8 @@ public:
   bool should_keep_alive() const;
   void should_keep_alive(bool b);
 
-  const Buffer& body();
-  void body(const Buffer& b);
+  size_t length() const;
+  void length(size_t l);
 
   /**
    * Prepare headers to be sent over the wire.
@@ -151,20 +153,6 @@ public:
    */
    Buffer renderTrailers();
 
-  /**
-   * Append a chunk of data to the body.
-   *
-   * IncomingMessage and OutgoingMessage override this method to
-   * handle chunked transfers properly. When receiving a body this
-   * is called once for normal transfers and multiple times for
-   * chunked transfers. When sending a body this may be called
-   * multiple times until complete, with normal transfer the entire
-   * body is sent at once, with chunked transfers a chunk may be sent
-   * after each append.
-   *
-   * @param buf
-   */
-   void appendBody(const Buffer& buf);
 };
 
   /**
@@ -198,6 +186,11 @@ private:
   on_message_complete_type on_message_complete_;
   on_error_type on_error_;
 
+  /**
+   * Fill in http_message using current parser state
+   */
+  void prepare_message();
+
 public:
   http_parser_context(http_parser_type parser_type, http_message* message);
   ~http_parser_context();
@@ -205,11 +198,6 @@ public:
   static int on_url(http_parser* parser, const char *at, size_t len);
   static int on_header_field(http_parser* parser, const char* at, size_t len);
   static int on_header_value(http_parser* parser, const char* at, size_t len);
-
-  /**
-   * Fill in http_message using current parser state
-   */
-  void prepare_message();
   static int on_headers_complete(http_parser* parser);
   static int on_body(http_parser* parser, const char* at, size_t len);
   static int on_message_complete(http_parser* parser);

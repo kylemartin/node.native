@@ -1,4 +1,6 @@
 
+#define DEBUG_ENABLED
+
 #include "native/http.h"
 
 namespace native {
@@ -35,7 +37,10 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
   , on_incoming_()
 {
   CRUMB();
-  // wrap callbacks in closures
+
+  registerEvent<native::event::error>();
+
+  // Wrap callbacks registered with detail::http_parser_context in closures
   context_.on_headers_complete(
     [this](){
       on_headers_complete();
@@ -56,54 +61,75 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       on_error(e);
     }
   );
-  CRUMB();
-  // Register socket event handlers
+
+  // Register net::Socket event handlers
   socket->on<native::event::data>([=](const Buffer& buf) {
-    CRUMB();
+    DBG("socket data");
       if(context_.feed_data(buf.base(), 0, buf.size()))
       {
-        CRUMB();
+        DBG("parsing finished, pausing socket");
         // parse end
         socket->pause();
       }
       else
       {
-        CRUMB();
+        DBG("parsing not finished, continue reading socket");
         // more reads required: keep reading!
       }
   });
 
   socket->on<native::event::end>([=](){
-    CRUMB();
+    DBG("socket end");
     // EOF
     if(!context_.is_finished())
     {
+      DBG("socket end before parsing finished");
       // HTTP request was not properly parsed.
+      emit<event::error>(Exception("socket end before parsing finished"));
     }
   });
 
   socket->on<native::event::error>([=](const native::Exception& e){
-    CRUMB();
+    DBG("socket error");
+    emit<event::error>(e);
   });
 
   socket->on<native::event::close>([=](){
-    CRUMB();
+    DBG("socket close");
+    // EOF
+    if(!context_.is_finished())
+    {
+      DBG("socket close before parsing finished");
+      // HTTP request was not properly parsed.
+      emit<event::error>(Exception("socket close before parsing finished"));
+    }
   });
+
+  socket->on<event::connect>([=]() {
+    DBG("socket connect");
+  });
+  socket->on<event::timeout>([=](){
+    DBG("socket timeout");
+  });
+  socket->on<event::drain>([=](){
+    DBG("socket drain");
+  });
+
 }
 
 int Parser::on_body(const char* buf, size_t off, size_t len) {
-  CRUMB();
+  DBG("parser body");
   return 0;
 }
 
 int Parser::on_error(const native::Exception& e) {
-  CRUMB();
+  DBG("parser error");
   return 0;
 }
 
 
 int Parser::on_headers_complete() {
-  CRUMB();
+  DBG("parser headers complete");
   if (!on_incoming_) return 0;
 
   incoming_ = on_incoming_(socket_, message_);
@@ -112,7 +138,7 @@ int Parser::on_headers_complete() {
 }
 
 int Parser::on_message_complete() {
-  CRUMB();
+  DBG("parser message complete");
   if (incoming_) {
     incoming_->end();
   }

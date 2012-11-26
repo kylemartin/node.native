@@ -2,6 +2,8 @@
 #include <regex>
 #include <ctime>
 
+#define DEBUG_ENABLED
+
 #include "native/http.h"
 
 namespace native { namespace http {

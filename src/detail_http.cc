@@ -106,13 +106,13 @@ bool url_obj::has_fragment() const {
 
 http_message::http_message() :
     version_(), headers_(), trailers_(), method_(), url_(), status_(0),
-    upgrade_(false), should_keep_alive_(true), body_() {
+    upgrade_(false), should_keep_alive_(true), length_() {
 }
 
 http_message::http_message(const http_message& c) :
     version_(c.version_), headers_(c.headers_), trailers_(c.trailers_),
     method_(c.method_), url_(c.url_), status_(c.status_), upgrade_(c.upgrade_),
-    should_keep_alive_(c.should_keep_alive_), body_(c.body_) {
+    should_keep_alive_(c.should_keep_alive_), length_(c.length_) {
 }
 
 http_message::http_message(http_message&& c)
@@ -124,7 +124,7 @@ http_message::http_message(http_message&& c)
 , status_(std::move(c.status_))
 , upgrade_(std::move(c.upgrade_))
 , should_keep_alive_(std::move(c.should_keep_alive_))
-, body_(std::move(c.body_))
+, length_(std::move(c.length_))
 {}
 
 http_message::~http_message() {
@@ -299,11 +299,11 @@ void http_message::should_keep_alive(bool b) {
   should_keep_alive_ = b;
 }
 
-const Buffer& http_message::body() {
-  return body_;
+size_t http_message::length() const {
+  return length_;
 }
-void http_message::body(const Buffer& b) {
-  body_ = b;
+void http_message::length(size_t l) {
+  length_ = l;
 }
 
 Buffer http_message::renderHeaders() {
@@ -314,9 +314,6 @@ Buffer http_message::renderHeaders() {
 Buffer http_message::renderTrailers() {
   // TODO: return trailers buffer
   return Buffer();
-}
-
-void http_message::appendBody(const Buffer& buf) {
 }
 
 http_parser_context::http_parser_context(http_parser_type parser_type,

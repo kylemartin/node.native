@@ -3,15 +3,15 @@
 namespace native {
 namespace http {
 
+/* Client Response ************************************************************/
+
 ClientResponse::ClientResponse(net::Socket* socket,
     detail::http_message* message) :
     IncomingMessage(socket, message) {
   CRUMB();
-  assert(socket);
-  registerEvent<native::event::data>();
-  registerEvent<native::event::end>();
-  registerEvent<native::event::close>();
 }
+
+/* Client Request *************************************************************/
 
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :

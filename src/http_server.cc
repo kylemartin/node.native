@@ -1,30 +1,23 @@
 
+#define DEBUG_ENABLED
+
 #include "native/http.h"
 
 namespace native { namespace http {
+
+/* ServerRequest **************************************************************/
 
 ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
     : IncomingMessage(socket, message) // TODO: use move constructor
 {
   CRUMB();
-    assert(socket_);
 
-    registerEvent<native::event::data>();
-    registerEvent<native::event::end>();
-    registerEvent<native::event::close>();
-
-    socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
-    socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
-    socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
+  socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
+  socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
+  socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
 }
 
-http_method ServerRequest::method() {
-  return message_->method();
-}
-detail::url_obj ServerRequest::url() {
-  return message_->url();
-}
-
+/* ServerResponse *************************************************************/
 
 ServerResponse::ServerResponse(net::Socket* socket)
     : OutgoingMessage(socket)

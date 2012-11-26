@@ -11,6 +11,7 @@
 #define CRLF "\r\n"
 
 /*
+
 # HTTP #
 
 Sockets are created by a Server for incoming connections or by a ClientRequest
@@ -97,29 +98,36 @@ namespace native
 
   namespace http {
     using detail::headers_type;
+
     /**
-     * Factory for constructing Parser instances managing a parsing context.
+     * Factory managing pool of Parser instances composed of a net::Socket and a
+     * detail::http_parser_context constructing a detail::http_message.
+     *
+     * Parser instances register event handlers on the net::Socket to receive
+     * and feed it to the http_parser_context. They are also responsible for
+     * managing the socket state in relation to the parser state (errors, etc.).
      *
      * Parser instances expect to process incoming messages from clients or 
-     * servers. IncomingMessage instances are created based on received headers 
-     * and passed on to the on_incoming callback to determine if the body needs 
-     * to be parsed. The on_incoming callback should be registered before 
-     * starting to receive a message and implements the the logic for a handling
-     * an incoming request/response.
+     * servers. Status line and headers are stored in an http_message
+     * and passed on to the on_incoming callback to construct an IncomingMessage
+     * and determine if the body needs to be parsed. The on_incoming callback
+     * MUST be registered before starting to receive a message and is expected
+     * to implement the the logic for handling an incoming request/response and
+     * processing the body as it is received.
      */
-class Parser {
+class Parser : public EventEmitter {
     public:
       /**
        * Callback that must be registered to allow construction of classes
-       * derived from IncomingMessage. This is necessary  because we want to
-       * emit events on the derived type. It might  be possible/better to do
-       * this another way (templates, etc.).
+       * derived from IncomingMessage. This is necessary because we want to
+       * emit events on the derived type.
        * Callback for handling request and response IncomingMessages. This gets
        * called from on_handle_headers_complete to determine if we should skip 
        * the body and to pass the IncomingMessage constructed from the headers, 
        * which can in turn be passed in a request/response event so the user can
        * register event handlers on the IncomingMessage.
        */
+      // TODO: Is there a better way to emit on IncomingMessage subtypes?
       typedef std::function<IncomingMessage*(net::Socket*,
           detail::http_message*)> on_incoming_type;
 
@@ -127,7 +135,7 @@ class Parser {
 
       /**
        * Create a parser of the specified type attached to the given socket
-       * which invokes the given callback with an IncomingMessage instance.
+       * which invokes the given callback to create an IncomingMessage instance.
        *
        * @param socket
        * @param type
@@ -232,41 +240,35 @@ class Parser {
       void pause();
       void resume();
 
-      void destroy(const Exception& e) {
-        socket_->destroy(e);
-      }
+      void destroy(const Exception& e);
 
       /*
        * Accessors
        */
 
-      void parser(Parser* parser) { parser_ = parser; }
-      Parser* parser() { return parser_; }
+      void parser(Parser* parser);
+      Parser* parser();
 
-      net::Socket* socket() { return socket_; }
+      net::Socket* socket();
 
       // Read-only HTTP message
-      int statusCode() { return message_->status(); }
-      const http_method& method() { return message_->method(); }
-      const detail::http_version& httpVersion() { return message_->version(); }
-      std::string httpVersionString() { return message_->version_string(); }
-      int httpVersionMajor() { return message_->version_major(); }
-      int httpVersionMinor() { return message_->version_minor(); }
-      const detail::url_obj& url() { return message_->url(); }
+      int statusCode();
+      const http_method& method();
+      const detail::http_version& httpVersion();
+      std::string httpVersionString();
+      int httpVersionMajor();
+      int httpVersionMinor();
+      const detail::url_obj& url();
 
-      const headers_type& headers() { return message_->headers(); }
-      const Buffer& body() { return message_->body(); }
-      const headers_type& trailers() { return message_->trailers(); }
+      const headers_type& headers();
+      const headers_type& trailers();
 
-      bool shouldKeepAlive() { return message_->should_keep_alive(); }
-      bool upgrade() { return message_->upgrade(); }
+      bool shouldKeepAlive();
+      bool upgrade();
 
-      const std::string& getHeader(const std::string& name) {
-        return message_->get_header(name);
-      }
-      const std::string& getTrailer(const std::string& name) {
-        return message_->get_trailer(name);
-      }
+      const std::string& getHeader(const std::string& name);
+      const std::string& getTrailer(const std::string& name);
+
       /**
        * Called from parser to signal end of message
        */
@@ -397,8 +399,6 @@ class Parser {
 
         virtual ~ServerRequest() {}
     public:
-        http_method method();
-        detail::url_obj url();
     };
 
     class ServerResponse : public OutgoingMessage

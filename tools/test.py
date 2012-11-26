@@ -240,7 +240,7 @@ class CompactProgressIndicator(ProgressIndicator):
     self.PrintProgress(case.GetLabel())
 
   def HasRun(self, output):
-    if output.UnexpectedOutput():
+    if output.UnexpectedOutput() or VERBOSE:
       self.ClearLine(self.last_status_length)
       self.PrintFailureHeader(output.test)
       stdout = output.output.stdout.strip()
