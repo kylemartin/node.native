@@ -6,15 +6,25 @@
 namespace native {
 namespace http {
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [IncomingMessage] "
 IncomingMessage::IncomingMessage(net::Socket* socket,
     detail::http_message* message) :
     socket_(socket), parser_(nullptr), complete_(false), readable_(true), paused_(
         false), pendings_(), endEmitted_(false), message_(message) {
-  CRUMB();
+  DBG("constructing");
   assert(socket);
+  // ReadableStream events
   registerEvent<native::event::data>();
   registerEvent<native::event::end>();
+  registerEvent<native::event::error>();
   registerEvent<native::event::close>();
+}
+
+// ReadbleStream interface
+
+bool IncomingMessage::readable() {
+  return false;
 }
 
 void IncomingMessage::pause() {
@@ -23,6 +33,12 @@ void IncomingMessage::pause() {
 void IncomingMessage::resume() {
   CRUMB();
 }
+
+void IncomingMessage::destroy(const Exception& e) {
+  socket_->destroy(e);
+}
+// ReadbleStream interface
+
 void IncomingMessage::_emitPending(std::function<void()> callback) {
   CRUMB();
 }
@@ -35,10 +51,6 @@ void IncomingMessage::_emitEnd() {
 void IncomingMessage::_addHeaderLine(const std::string& field,
     const std::string& value) {
   CRUMB();
-}
-
-void IncomingMessage::destroy(const Exception& e) {
-  socket_->destroy(e);
 }
 
 /*

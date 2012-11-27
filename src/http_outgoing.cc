@@ -26,6 +26,8 @@ static std::string utcDate() {
 }
 
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [OutgoingMessage] "
 OutgoingMessage::OutgoingMessage(net::Socket* socket_)
   : socket_(socket_),
     output_(),
@@ -43,16 +45,16 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
     message_(),
     header_(),
     headerSent_(false)
-{ CRUMB(); }
+{ DBG("constructing"); }
 
 // TODO: handle encoding
 void OutgoingMessage::write(const Buffer& buf) {
-CRUMB();
+DBG("writing");
 
 //js:  if (!this._header) {
 //js:    this._implicitHeader();
 //js:  }
-  // if headers not yet sent, send implicit header
+  // if headers not yet sent or no headers set send implicit header
   if (!this->headerSent_ && this->header_.size() <= 0) {
     this->_implicitHeader();
   }
@@ -110,7 +112,6 @@ void OutgoingMessage::write(const std::string& str) {
 
 void OutgoingMessage::end()
 {
-  CRUMB();
   end(Buffer(nullptr));
 }
 /**
@@ -119,7 +120,7 @@ void OutgoingMessage::end()
  * @return
  */
 void OutgoingMessage::end(const Buffer& buf) {
-        CRUMB();
+  DBG("end");
 //        assert(socket_);
 //
 //        if(socket_->end(buf))
@@ -251,14 +252,14 @@ void OutgoingMessage::end(const Buffer& buf) {
 //js:  }
 //js:
 //js:  return ret;
-        DBG("Outgoing message end");
+
         if (this->output_.size() == 0) {
           this->_finish();
         }
 }
 
 void OutgoingMessage::destroy(const Exception& e) {
-  CRUMB();
+  DBG("destroy");
   socket_->destroy(e);
 }
 
@@ -320,7 +321,7 @@ void OutgoingMessage::removeTrailer(const std::string& name) {
 }
 
 void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_type& headers) {
-  CRUMB();
+  DBG("_storeHeader");
   bool sentConnectionHeader = false;
   bool sentContentLengthHeader = false;
   bool sentTransferEncodingHeader = false;
@@ -516,7 +517,7 @@ void OutgoingMessage::_writeRaw(const Buffer& buf) {
       // TODO: handle output buffering
 //js:    // Directly write to socket.
 //js:    return this.connection.write(data, encoding);
-    DBG("Writing: " << std::string(buf.base(), buf.size()));
+    DBG("Writing:" << std::endl << std::string(buf.base(), buf.size()));
     this->socket_->write(buf);
 //js:  } else {
   } else {

@@ -1,9 +1,14 @@
 
-#include "native.h"
+#define DEBUG_ENABLED
+
+#include "native/base.h"
+#include "native/detail/http.h"
 
 namespace native {
 namespace detail {
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [url_obj] "
 url_obj::url_obj() :
     handle_(), buf_() {
 }
@@ -103,6 +108,9 @@ bool url_obj::has_query() const {
 bool url_obj::has_fragment() const {
   return handle_.field_set & (1 << UF_FRAGMENT);
 }
+
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [http_message] "
 
 http_message::http_message() :
     version_(), headers_(), trailers_(), method_(), url_(), status_(0),
@@ -315,6 +323,9 @@ Buffer http_message::renderTrailers() {
   // TODO: return trailers buffer
   return Buffer();
 }
+
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [http_parser_context] "
 
 http_parser_context::http_parser_context(http_parser_type parser_type,
     http_message* message) :

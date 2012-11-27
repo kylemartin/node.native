@@ -29,6 +29,7 @@ console.log("Running test: " + process.argv.slice(2).join(" "));
 var responses_recvd = 0;
 var body0 = '';
 var body1 = '';
+var body2 = '';
 
 function handle_error(err) {
 	console.log((('code' in err) ? 'Error code: ' + err.code + '\n' : '') + err); 
@@ -53,7 +54,7 @@ setTimeout(function() {
     console.log('Got /hello response');
   })
   .on('error',handle_error);
-}, 1000);
+}, 100);
 
 setTimeout(function() {
 	console.log('Sending /world request');
@@ -72,7 +73,26 @@ setTimeout(function() {
   });
   req.on('error', handle_error);
   req.end();
-}, 2000);
+}, 200);
+
+setTimeout(function() {
+	console.log('Sending /foo request');
+  var req = http.request({
+    port: common.PORT,
+    method: 'POST',
+    path: '/foo',
+    agent: agent
+  }, function(res) {
+    assert.equal(200, res.statusCode);
+    responses_recvd += 1;
+    res.setEncoding('utf8');
+    res.on('data', function(chunk) { body2 += chunk; });
+    res.on('error', handle_error);
+    console.log('Got /foo response');
+  });
+  req.on('error', handle_error);
+  req.end();
+}, 300);
 
 timeout = setTimeout(function(){
 	console.log("Process timeout!");
@@ -82,10 +102,11 @@ timeout = setTimeout(function(){
 
 process.on('exit', function() {
   console.log('responses_recvd: ' + responses_recvd);
-  assert.equal(2, responses_recvd);
+  assert.equal(3, responses_recvd);
 
   assert.equal('The path was /hello', body0);
   assert.equal('The path was /world', body1);
+  assert.equal(common.LOREM, body2);
 
   kill();
 });

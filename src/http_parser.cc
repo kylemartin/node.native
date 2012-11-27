@@ -6,6 +6,8 @@
 namespace native {
 namespace http {
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [Parser] "
 /*
  * Public
  */
@@ -14,7 +16,7 @@ Parser* Parser::create(
     net::Socket* socket,
     on_incoming_type incoming_cb)
 {
-  CRUMB();
+  DBG("creating parser");
   Parser* parser(new Parser(type, socket));
 
   if (incoming_cb) parser->on_incoming(incoming_cb);
@@ -36,9 +38,17 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
   , incoming_(nullptr)
   , on_incoming_()
 {
-  CRUMB();
+  DBG("constructing parser");
 
-  registerEvent<native::event::error>();
+  registerEvent<event::error>();
+  registerEvent<event::end>();
+  registerEvent<event::close>();
+
+  registerContextCallbacks();
+  registerSocketEvents();
+}
+
+void Parser::registerContextCallbacks() {
 
   // Wrap callbacks registered with detail::http_parser_context in closures
   context_.on_headers_complete(
@@ -61,15 +71,17 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       on_error(e);
     }
   );
+}
 
+void Parser::registerSocketEvents() {
   // Register net::Socket event handlers
-  socket->on<native::event::data>([=](const Buffer& buf) {
+  socket_->on<native::event::data>([=](const Buffer& buf) {
     DBG("socket data");
       if(context_.feed_data(buf.base(), 0, buf.size()))
       {
         DBG("parsing finished, pausing socket");
         // parse end
-        socket->pause();
+        socket_->pause();
       }
       else
       {
@@ -78,7 +90,7 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       }
   });
 
-  socket->on<native::event::end>([=](){
+  socket_->on<native::event::end>([=](){
     DBG("socket end");
     // EOF
     if(!context_.is_finished())
@@ -87,14 +99,15 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       // HTTP request was not properly parsed.
       emit<event::error>(Exception("socket end before parsing finished"));
     }
+    emit<event::end>();
   });
 
-  socket->on<native::event::error>([=](const native::Exception& e){
+  socket_->on<native::event::error>([=](const native::Exception& e){
     DBG("socket error");
     emit<event::error>(e);
   });
 
-  socket->on<native::event::close>([=](){
+  socket_->on<native::event::close>([=](){
     DBG("socket close");
     // EOF
     if(!context_.is_finished())
@@ -103,45 +116,44 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
       // HTTP request was not properly parsed.
       emit<event::error>(Exception("socket close before parsing finished"));
     }
+    emit<event::close>();
   });
 
-  socket->on<event::connect>([=]() {
+  socket_->on<event::connect>([=]() {
     DBG("socket connect");
   });
-  socket->on<event::timeout>([=](){
+  socket_->on<event::timeout>([=](){
     DBG("socket timeout");
   });
-  socket->on<event::drain>([=](){
+  socket_->on<event::drain>([=](){
     DBG("socket drain");
   });
-
-}
-
-int Parser::on_body(const char* buf, size_t off, size_t len) {
-  DBG("parser body");
-  return 0;
 }
 
 int Parser::on_error(const native::Exception& e) {
-  DBG("parser error");
+  DBG("error");
+  emit<event::error>(e);
   return 0;
 }
 
-
 int Parser::on_headers_complete() {
-  DBG("parser headers complete");
-  if (!on_incoming_) return 0;
-
+  DBG("headers complete");
+  assert(on_incoming_);
   incoming_ = on_incoming_(socket_, message_);
+  return 0;
+}
 
+int Parser::on_body(const char* buf, size_t off, size_t len) {
+  DBG("body");
+  assert(incoming_);
+  incoming_->emit<event::data>(Buffer(buf+off,len));
   return 0;
 }
 
 int Parser::on_message_complete() {
-  DBG("parser message complete");
-  if (incoming_) {
-    incoming_->end();
-  }
+  DBG("message complete");
+  assert(incoming_);
+  incoming_->end();
   return 0;
 }
 

@@ -169,6 +169,15 @@ class Parser : public EventEmitter {
       Parser(http_parser_type type, net::Socket* socket);
 
       /**
+       * Register callbacks with detail::http_parser_context
+       */
+      void registerContextCallbacks();
+
+      /**
+       * Register socket event handlers
+       */
+      void registerSocketEvents();
+      /**
        * Registered with detail::http_parser_context to process headers and 
        * setup an IncomingMessage to pass to the on_incoming callback registered
        * with this Parser
@@ -236,7 +245,7 @@ class Parser : public EventEmitter {
 
       // TODO: add move constructor
 
-
+      bool readable();
       void pause();
       void resume();
 
@@ -390,6 +399,12 @@ class Parser : public EventEmitter {
 
     class Server;
 
+    /**
+     * ServerRequest event interface
+     * 'data': function (chunk) { }
+     * 'end': function () { }
+     * 'close': function () { }
+     */
     class ServerRequest : public IncomingMessage
     {
         friend class Server;
@@ -401,6 +416,10 @@ class Parser : public EventEmitter {
     public:
     };
 
+    /**
+     * ServerResponse event interface
+     * 'close': function () { }
+     */
     class ServerResponse : public OutgoingMessage
     {
         friend class Server;
@@ -419,6 +438,16 @@ class Parser : public EventEmitter {
             const headers_type& headers = headers_type());
     };
 
+    /**
+     * Server event interface:
+     * 'request': function (request, response) { }
+     * 'connection': function (socket) { }
+     * 'close': function () { }
+     * 'checkContinue': function (request, response) { }
+     * 'connect': function (request, socket, head) { }
+     * 'upgrade': function (request, socket, head) { }
+     * 'clientError': function (exception) { }
+     */
     class Server : public net::Server
     {
     public:
@@ -426,18 +455,32 @@ class Parser : public EventEmitter {
 
         virtual ~Server() {}
 
-    public:
-        //void close();
-        //void listen(port, hostname, callback);
-        //void listen(path, callback);
+        void on_connection(net::Socket* socket);
+
+        IncomingMessage* on_incoming(Parser* parser,
+            net::Socket* socket, detail::http_message* message);
     };
 
+    /**
+     * ClientResponse event interface
+     * 'data': function (chunk) { }
+     * 'end': function () { }
+     * 'close': function () { }
+     */
     class ClientResponse : public IncomingMessage
     {
     public:
       ClientResponse(net::Socket* socket, detail::http_message* message);
     };
 
+    /**
+     * ClientRequest event interface:
+     * 'response': function (response) { }
+     * 'socket': function (socket) { }
+     * 'connect': function (response, socket, head) { }
+     * 'upgrade': function (response, socket, head) { }
+     * 'continue': function () { }
+     */
     class ClientRequest : public OutgoingMessage
     {
     private:

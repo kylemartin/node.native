@@ -15,8 +15,9 @@
 #include <iostream>
 
 #if defined(DEBUG) && defined(DEBUG_ENABLED)
-#define DBG(msg) std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl;
-#define CRUMB() std::cerr << __FILE__ << ":" << __LINE__ << "> " << __PRETTY_FUNCTION__ << std::endl;
+#define DEBUG_PREFIX " "
+#define DBG(msg) std::cerr << __FILE__ << ":" << __LINE__ << ">" << DEBUG_PREFIX << msg << std::endl;
+#define CRUMB() std::cerr << __FILE__ << ":" << __LINE__ << ">" << DEBUG_PREFIX << "" << __FUNCTION__ << std::endl;
 #define TRACE(exp) DBG(#exp) exp;
 #else
 #define DBG(msg)

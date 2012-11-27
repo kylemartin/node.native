@@ -43,20 +43,29 @@ TEST(Server) {
         }
       }
 
+      std::string request_body;
       /**
        * ReadableStream Events
        */
-      req->on<event::data>([](const Buffer& buf){
-        std::cout << "[req] on data: " << std::string(buf.base(), buf.size());
+      req->on<event::data>([&](const Buffer& buf){
+        std::string str(buf.base(), buf.size());
+        std::cout << "[req] on data: " << str;
+        request_body.append(str);
       });
 
       req->on<event::end>([=, &responses_sent](){
         std::cout << "[req] on end" << std::endl;
-        res->writeHead(200, {{"Content-Type", "text/plain"}});
-        res->write("The path was " + req->url().path());
-        res->end();
+        if (responses_sent < 2) {
+          res->writeHead(200, {{"Content-Type", "text/plain"}});
+          res->write("The path was " + req->url().path());
+          res->end();
+        } else if (responses_sent == 2){
+          res->writeHead(200, {{"Content-Type", "text/plain"}});
+          res->write(request_body);
+          res->end();
+        }
         responses_sent += 1;
-        if (responses_sent == 2)
+        if (responses_sent > 2)
           server->close();
       });
 
@@ -87,6 +96,9 @@ TEST(Server) {
 //      res->end(Buffer(std::string("Hello World!\n")));
     });
 
+    server->on<event::listening>([](){
+      std::cout << "[server] on listening" << std::endl;
+    });
     server->on<event::connection>([](net::Socket* socket){
       std::cout << "[server] on connection" << std::endl;
     });
@@ -108,7 +120,7 @@ TEST(Server) {
 
     server->listen(COMMON_PORT, "127.0.0.1");
   });
-  CHECK(responses_sent == 2);
+  CHECK(responses_sent == 3);
 }
 
 // var server = http.Server(function(req, res) {

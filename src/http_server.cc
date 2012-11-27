@@ -6,11 +6,12 @@
 namespace native { namespace http {
 
 /* ServerRequest **************************************************************/
-
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [ServerRequest] "
 ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
     : IncomingMessage(socket, message) // TODO: use move constructor
 {
-  CRUMB();
+  DBG("constructing");
 
   socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
   socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
@@ -19,10 +20,12 @@ ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
 
 /* ServerResponse *************************************************************/
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [ServerResponse] "
 ServerResponse::ServerResponse(net::Socket* socket)
     : OutgoingMessage(socket)
 {
-  CRUMB();
+  DBG("constructing");
     assert(socket_);
 
     registerEvent<native::event::close>();
@@ -38,69 +41,24 @@ void ServerResponse::_implicitHeader() {
 };
 
 void ServerResponse::writeContinue() {
+  DBG("writing continue");
 
 //  this._writeRaw('HTTP/1.1 100 Continue' + CRLF + CRLF, 'ascii');
 //  this._sent100 = true;
-  CRUMB();
   this->_writeRaw(Buffer("HTTP/1.1 100 Continue" CRLF CRLF));
 }
 
 void ServerResponse::writeHead(int statusCode, const headers_type& given_headers) {
-  CRUMB();
   writeHead(statusCode, "", given_headers);
 }
 
 void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPhrase
     , const headers_type& given_headers)
 {
-  CRUMB();
-  //  var reasonPhrase, headers, headerIndex;
-  //
-  //  if (typeof arguments[1] == 'string') {
-  //    reasonPhrase = arguments[1];
-  //    headerIndex = 2;
-  //  } else {
-  //    reasonPhrase = STATUS_CODES[statusCode] || 'unknown';
-  //    headerIndex = 1;
-  //  }
-  //  this.statusCode = statusCode;
+  DBG("writing headers");
+
   std::string reasonPhrase(!given_reasonPhrase.empty()
       ? given_reasonPhrase : detail::http_status_text(statusCode));
-
-  //
-  //  var obj = arguments[headerIndex];
-  //
-  //  if (obj && this._headers) {
-  //    // Slow-case: when progressive API and header fields are passed.
-  //    headers = this._renderHeaders();
-  //
-  //    if (Array.isArray(obj)) {
-  //      // handle array case
-  //      // TODO: remove when array is no longer accepted
-  //      var field;
-  //      for (var i = 0, len = obj.length; i < len; ++i) {
-  //        field = obj[i][0];
-  //        if (field in headers) {
-  //          obj.push([field, headers[field]]);
-  //        }
-  //      }
-  //      headers = obj;
-  //
-  //    } else {
-  //      // handle object case
-  //      var keys = Object.keys(obj);
-  //      for (var i = 0; i < keys.length; i++) {
-  //        var k = keys[i];
-  //        if (k) headers[k] = obj[k];
-  //      }
-  //    }
-  //  } else if (this._headers) {
-  //    // only progressive api is used
-  //    headers = this._renderHeaders();
-  //  } else {
-  //    // only writeHead() called
-  //    headers = obj;
-  //  }
 
   // only progressive api is used
   headers_type headers = this->_renderHeaders();
@@ -114,26 +72,7 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
     headers = given_headers;
   }
 
-  //
-  //  var statusLine = 'HTTP/1.1 ' + statusCode.toString() + ' ' +
-  //                   reasonPhrase + CRLF;
-  //
   std::string statusLine = "HTTP/1.1 " + std::to_string(statusCode) + " " + reasonPhrase + CRLF;
-
-//  if (statusCode === 204 || statusCode === 304 ||
-//      (100 <= statusCode && statusCode <= 199)) {
-//    // RFC 2616, 10.2.5:
-//    // The 204 response MUST NOT include a message-body, and thus is always
-//    // terminated by the first empty line after the header fields.
-//    // RFC 2616, 10.3.5:
-//    // The 304 response MUST NOT contain a message-body, and thus is always
-//    // terminated by the first empty line after the header fields.
-//    // RFC 2616, 10.1 Informational 1xx:
-//    // This class of status code indicates a provisional response,
-//    // consisting only of the Status-Line and optional headers, and is
-//    // terminated by an empty line.
-//    this._hasBody = false;
-//  }
 
   if (statusCode == 204 || statusCode == 304 ||
       (100 <= statusCode && statusCode <= 199)) {
@@ -150,76 +89,83 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
       this->hasBody_ = false;
   }
 
-//
-//  // don't keep alive connections where the client expects 100 Continue
-//  // but we sent a final status; they may put extra bytes on the wire.
-//  if (this._expect_continue && ! this._sent100) {
-//    this.shouldKeepAlive = false;
-//  }
-//
   if (this->expectContinue_ && !this->sent100_) {
     this->shouldKeepAlive_ = false;
   }
-//  this._storeHeader(statusLine, headers);
-  CRUMB();
   this->_storeHeader(statusLine, headers);
 }
 
+#undef DEBUG_PREFIX
+#define DEBUG_PREFIX " [Server] "
 Server::Server()
     : net::Server()
 {
-  CRUMB();
+  DBG("constructing");
     registerEvent<native::event::http::server::request>();
     registerEvent<native::event::http::server::checkContinue>();
     registerEvent<native::event::http::server::upgrade>();
-    registerEvent<native::event::connection>();
-    registerEvent<native::event::close>();
-    registerEvent<native::event::error>();
+    registerEvent<native::event::connect>();
+    registerEvent<native::event::clientError>();
+    // Inherited from net::Server
+    // registerEvent<native::event::connection>();
+    // registerEvent<native::event::close>();
+    // registerEvent<native::event::error>();
 
-    // Register connection listener
+    // Register net::Server connection listener
     on<native::event::connection>([&](net::Socket* socket){
-      CRUMB();
-        assert(socket);
+      return this->on_connection(socket);
+    });
+}
 
-        // Create a Parser to handle incoming message
-        // TODO: check if allocated Parser are leaking
-        Parser* parser(Parser::create(HTTP_REQUEST, socket));
+void Server::on_connection(net::Socket* socket) {
+  DBG("on connection");
+    assert(socket);
 
-        // The parser will start reading from the socket and parsing data
+    // Create a Parser to handle incoming message
+    // TODO: check if allocated Parser are leaking
+    Parser* parser(Parser::create(HTTP_REQUEST, socket));
 
-        // After receiving headers it will call this to create an IncomingMessage
-        parser->on_incoming([=](net::Socket* socket, detail::http_message* message) {
-          CRUMB();
-          // Create ServerRequest from IncomingMessage
-          ServerRequest* req = new ServerRequest(socket, message);
+    // The parser will start reading from the socket and parsing data
 
-          assert(req);
+    // After receiving headers it will call this to create an IncomingMessage
+    parser->on_incoming([=](net::Socket* socket, detail::http_message* message) {
+      return this->on_incoming(parser, socket, message);
+    });
 
-          req->parser(parser);
+    parser->on<event::error>([this](const Exception& e) {
+      emit<event::error>(e);
+    });
+}
 
-          // TODO: Do early header processing and decide whether body should be received
+IncomingMessage* Server::on_incoming(Parser* parser, net::Socket* socket, detail::http_message* message) {
+  DBG("creating ServerRequest for Parser");
+  // Create ServerRequest from IncomingMessage
+  ServerRequest* req = new ServerRequest(socket, message);
 
-          // Emit request event so user can prepare for receiving body
+  assert(req);
 
-          // Create ServerResponse
-          ServerResponse* res = new ServerResponse(socket);
-          assert(res);
-          // Pass request and response to listener
-          emit<native::event::http::server::request>(req, res);
+  req->parser(parser);
 
-            // TODO: handle cleanup of ServerRequest better
+  // TODO: Do early header processing and decide whether body should be received
+
+  // Emit request event so user can prepare for receiving body
+
+  // Create ServerResponse
+  ServerResponse* res = new ServerResponse(socket);
+  assert(res);
+  // Pass request and response to listener
+  emit<native::event::http::server::request>(req, res);
+
+    // TODO: handle cleanup of ServerRequest better
 //                        delete req;
 
 //                      return 0; // Don't skip body
 //                      return 1; // Skip body
-          return req;
-        });
-    });
+  return req;
 }
 
 Server* createServer()
 {
-  CRUMB();
     auto server = new Server();
 
     return server;
