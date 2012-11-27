@@ -43,25 +43,39 @@ TEST(Server) {
         }
       }
 
+      if (responses_sent == 2) {
+        CHECK_EQ(req->method(), HTTP_POST);
+        CHECK_EQ("/foo", req->url().path().c_str());
+        CHECK(req->headers().count("Connection") == 1);
+        CHECK(req->headers().find("Connection")->second == "keep-alive");
+        CHECK(req->headers().count("Transfer-Encoding") == 1);
+        CHECK(req->headers().find("Transfer-Encoding")->second == "chunked");
+        std::cout << "headers:" << std::endl;
+        for (http::headers_type::const_iterator it = req->headers().begin();
+            it != req->headers().end(); ++it) {
+          std::cout << "  " << it->first << " = " << it->second << std::endl;
+        }
+      }
+
       std::string request_body;
       /**
        * ReadableStream Events
        */
       req->on<event::data>([&](const Buffer& buf){
         std::string str(buf.base(), buf.size());
-        std::cout << "[req] on data: " << str;
+        std::cout << "[req] on data: " << str << std::endl;
         request_body.append(str);
       });
 
-      req->on<event::end>([=, &responses_sent](){
+      req->on<event::end>([=, &responses_sent, &request_body](){
         std::cout << "[req] on end" << std::endl;
         if (responses_sent < 2) {
           res->writeHead(200, {{"Content-Type", "text/plain"}});
           res->write("The path was " + req->url().path());
           res->end();
-        } else if (responses_sent == 2){
+        } else if (responses_sent == 2) {
           res->writeHead(200, {{"Content-Type", "text/plain"}});
-          res->write(request_body);
+          res->write(Buffer(request_body.c_str(), request_body.size()));
           res->end();
         }
         responses_sent += 1;

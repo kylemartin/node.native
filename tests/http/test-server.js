@@ -91,6 +91,7 @@ setTimeout(function() {
     console.log('Got /foo response');
   });
   req.on('error', handle_error);
+  req.write(common.LOREM);
   req.end();
 }, 300);
 

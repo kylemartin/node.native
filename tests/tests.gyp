@@ -7,7 +7,8 @@
       'dependencies': [
       	'common/common.gyp:*',
         'http/http.gyp:*',
-        'net/net.gyp:*'
+        'net/net.gyp:*',
+        'native/native.gyp:*'
       ],
     }
   ]
