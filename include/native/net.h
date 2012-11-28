@@ -139,8 +139,8 @@ public:
    *  @retval true        The data was sent and the socket was closed successfully.
    *  @retval false       There was an error while closing the socket stream.
    */
-  virtual bool end(const std::string& str, const std::string& encoding =
-      std::string(), int fd = -1);
+  virtual bool end(const std::string& str,
+      const detail::encoding_type& encoding = detail::et_ascii, int fd = -1);
 
   /**
    *  @brief Close the socket stream.

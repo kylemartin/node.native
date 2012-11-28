@@ -86,7 +86,7 @@ bool Socket::end(const Buffer& buffer)
   return true;
 }
 
-bool Socket::end(const std::string& str, const std::string& encoding, int fd)
+bool Socket::end(const std::string& str, const detail::encoding_type& encoding, int fd)
 {
   // TODO: what about 'fd'?
   return end(Buffer(str, encoding));

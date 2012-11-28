@@ -12,6 +12,7 @@
         'timers.cc',
         'net.cc',
         'stream.cc',
+        'buffers.cc',
         'detail_handle.cc',
         'detail_node.cc',
         'detail_pipe.cc',

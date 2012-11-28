@@ -204,10 +204,10 @@ void OutgoingMessage::end(const Buffer& buf) {
             CRUMB()
             // TODO: do this without stringstream
             std::stringstream ss;
-            ss << std::string(header_.base(), header_.size())
+            ss << header_.str()
               << std::hex << data.size() << CRLF
-              << std::string(data.base(),data.size()) << CRLF << 0 << CRLF
-              << std::string(trailer_.base(), trailer_.size()) << CRLF;
+              << data.str() << CRLF << 0 << CRLF
+              << trailer_.str() << CRLF;
             socket_->write(Buffer(ss.str()));
           } else {
             CRUMB();
@@ -478,10 +478,8 @@ void OutgoingMessage::_send(const Buffer& buf) {
 //js:    }
 //js:    this._headerSent = true;
 
-    Buffer out(
-        std::string(this->header_.base(),this->header_.size()) +
-        std::string(buf.base(), buf.size())
-    );
+    Buffer out(this->header_);
+    out.append(buf);
 
     this->headerSent_ = true;
 
@@ -517,7 +515,7 @@ void OutgoingMessage::_writeRaw(const Buffer& buf) {
       // TODO: handle output buffering
 //js:    // Directly write to socket.
 //js:    return this.connection.write(data, encoding);
-    DBG("Writing:" << std::endl << std::string(buf.base(), buf.size()));
+    DBG("Writing:" << std::endl << buf.str());
     this->socket_->write(buf);
 //js:  } else {
   } else {

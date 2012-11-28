@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 			 * ReadableStream Events
 			 */
 			res->on<event::data>([](const Buffer& buf){
-				std::cout << "[res] on data: " << std::string(buf.base(), buf.size());
+				std::cout << "[res] on data: " << buf.str();
 			});
 			res->on<event::end>([](){
 				std::cout << "[res] on end" << std::endl;

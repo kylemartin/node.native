@@ -35,7 +35,7 @@ namespace native
         virtual bool write(const std::string& str, const std::string& encoding, int fd) = 0;
 
         virtual bool end(const Buffer& buffer) = 0;
-        virtual bool end(const std::string& str, const std::string& encoding, int fd) = 0;
+        virtual bool end(const std::string& str, const detail::encoding_type& encoding, int fd) = 0;
         virtual bool end() = 0;
 
         virtual void destroy(Exception exception) = 0;

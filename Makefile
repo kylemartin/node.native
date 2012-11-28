@@ -59,7 +59,7 @@ test-verbose: native
 	$(PYTHON) tools/test.py --verbose --mode=$(BUILDTYPE) $(all_tests)
 
 test-%: native
-	$(PYTHON) tools/test.py --mode=$(BUILDTYPE) $*
+	$(PYTHON) tools/test.py --verbose --mode=$(BUILDTYPE) $*
 
 # The .PHONY is needed to ensure that we recursively use the out/Makefile
 # to check for changes.

@@ -57,17 +57,16 @@ TEST(Server) {
         }
       }
 
-      std::string request_body;
+      Buffer* request_body = new Buffer();
       /**
        * ReadableStream Events
        */
       req->on<event::data>([&](const Buffer& buf){
-        std::string str(buf.base(), buf.size());
-        std::cout << "[req] on data: " << str << std::endl;
-        request_body.append(str);
+        std::cout << "[req] on data: " << buf.str() << std::endl;
+        request_body->append(buf);
       });
 
-      req->on<event::end>([=, &responses_sent, &request_body](){
+      req->on<event::end>([=, &responses_sent](){
         std::cout << "[req] on end" << std::endl;
         if (responses_sent < 2) {
           res->writeHead(200, {{"Content-Type", "text/plain"}});
@@ -75,7 +74,7 @@ TEST(Server) {
           res->end();
         } else if (responses_sent == 2) {
           res->writeHead(200, {{"Content-Type", "text/plain"}});
-          res->write(Buffer(request_body.c_str(), request_body.size()));
+          res->write(*request_body);
           res->end();
         }
         responses_sent += 1;

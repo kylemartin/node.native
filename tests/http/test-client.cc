@@ -54,7 +54,7 @@ TEST(Client) {
            */
           res->on<event::data>([](const Buffer& buf) {
                 std::cout << "[res] on data: "
-                    << std::string(buf.base(), buf.size());
+                    << buf.str() << std::endl;
               });
           res->on<event::end>([]() {
                 std::cout << "[res] on end" << std::endl;

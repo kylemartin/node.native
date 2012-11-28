@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 				std::cout <<  "close" << std::endl;
 			});
 			socket->on<event::data>([](const Buffer& b){
-				std::cout << "data: " << std::string(b.base(), b.size()) << std::endl;
+				std::cout << "data: " << b.str() << std::endl;
 			});
 			socket->on<event::end>([](){
 				std::cout << "end" << std::endl;
