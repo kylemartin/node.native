@@ -14,12 +14,15 @@
 #include <tuple>
 #include <iostream>
 
-#if defined(DEBUG) && defined(DEBUG_ENABLED)
-#define DEBUG_PREFIX " "
-#define DBG(msg) std::cerr << __FILE__ << ":" << __LINE__ << ">" << DEBUG_PREFIX << msg << std::endl;
-#define CRUMB() std::cerr << __FILE__ << ":" << __LINE__ << ">" << DEBUG_PREFIX << "" << __FUNCTION__ << std::endl;
+#if defined(DEBUG)
+
+#define DEBUG_PRINT(msg) do { std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl; } while(0);
+#define DBG(msg) DEBUG_PRINT(msg)
+#define CRUMB() DBG(__FUNCTION__)
 #define TRACE(exp) DBG(#exp) exp;
+
 #else
+#define DEBUG_PRINT(msg)
 #define DBG(msg)
 #define CRUMB()
 #define TRACE(exp) exp;

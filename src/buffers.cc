@@ -80,7 +80,10 @@ namespace native
   }
 
   void Buffer::append(const Buffer& buf) {
-    data_.insert(data_.end(), buf.data_.begin(), buf.data_.end());
+    if (buf.data_.size()) {
+      std::cerr << "appending buf: " << buf.str() << std::endl;
+      data_.insert(data_.end(), buf.data_.begin(), buf.data_.end());
+    }
   }
 
   std::string Buffer::str() const { return std::string(base(), size()); }

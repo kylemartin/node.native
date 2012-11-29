@@ -2,8 +2,6 @@
 #include <regex>
 #include <ctime>
 
-#define DEBUG_ENABLED
-
 #include "native/http.h"
 
 namespace native { namespace http {
@@ -25,9 +23,9 @@ static std::string utcDate() {
   return std::string(date);
 }
 
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[OutgoingMessage] " << msg)
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [OutgoingMessage] "
 OutgoingMessage::OutgoingMessage(net::Socket* socket_)
   : socket_(socket_),
     output_(),
@@ -201,7 +199,7 @@ void OutgoingMessage::end(const Buffer& buf) {
           // HACKY.
 
           if (this->chunkedEncoding_) {
-            CRUMB()
+            CRUMB();
             // TODO: do this without stringstream
             std::stringstream ss;
             ss << header_.str()

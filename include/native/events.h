@@ -342,7 +342,8 @@ namespace native
         template<typename E, typename ...A>
         bool emit(A&&... args)
         {
-        	CRUMB();
+        	  DBG(__PRETTY_FUNCTION__);
+
             auto s = events_.find(typeid(E).hash_code());
             if(s != events_.end())
             {

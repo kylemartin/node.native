@@ -1,13 +1,12 @@
 
-#define DEBUG_ENABLED
-
 #include "native/http.h"
 
 namespace native {
 namespace http {
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [Parser] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[Parser] " << msg)
+
 /*
  * Public
  */

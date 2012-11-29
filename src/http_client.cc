@@ -4,7 +4,8 @@ namespace native {
 namespace http {
 
 /* Client Response ************************************************************/
-
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[ClientResponse] " << msg)
 ClientResponse::ClientResponse(net::Socket* socket,
     detail::http_message* message) :
     IncomingMessage(socket, message) {
@@ -12,7 +13,8 @@ ClientResponse::ClientResponse(net::Socket* socket,
 }
 
 /* Client Request *************************************************************/
-
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[ClientRequest] " << msg)
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
     OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_(),

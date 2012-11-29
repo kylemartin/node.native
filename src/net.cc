@@ -4,6 +4,9 @@
 namespace native {
 namespace net {
 
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[net::Socket] " << msg)
+
 Socket::Socket(detail::stream* handle, Server* server, bool allowHalfOpen)
 : Stream(handle, true, true)
 , socket_type_(SocketType::None)
@@ -38,10 +41,10 @@ Socket::Socket(detail::stream* handle, Server* server, bool allowHalfOpen)
 
 bool Socket::end(const Buffer& buffer)
 {
-  CRUMB();
+  DBG("end");
   if(connecting_ && ((flags_ & FLAG_SHUTDOWNQUED) == 0))
   {
-    CRUMB();
+    DBG("queue shutdown");
     if(buffer.size()) write(buffer);
     writable(false);
     flags_ |= FLAG_SHUTDOWNQUED;
@@ -54,16 +57,16 @@ bool Socket::end(const Buffer& buffer)
 
   if(!readable())
   {
-    CRUMB();
+    DBG("destroy soon");
     destroySoon();
   }
   else
   {
-    CRUMB();
+    DBG("shutting down");
     flags_ |= FLAG_SHUTDOWN;
 
     stream_->on_complete([&](detail::resval r){
-      CRUMB();
+      DBG("on complete, shutting down");
       assert(flags_ & FLAG_SHUTDOWN);
       assert(!writable());
 
@@ -81,8 +84,6 @@ bool Socket::end(const Buffer& buffer)
       return false;
     }
   }
-  CRUMB();
-
   return true;
 }
 
@@ -106,7 +107,7 @@ bool Socket::write(const std::string& str, const std::string& encoding, int fd) 
 // callback is invoked after all data is written.
 bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 {
-  CRUMB();
+  DBG("write");
   bytes_written_ += buffer.size();
 
   if(connecting_)
@@ -121,7 +122,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
   if(!stream_) throw Exception("This socket is closed.");
 
   stream_->on_complete([=](detail::resval r) {
-    CRUMB();
+    DBG("on complete");
     if(destroyed_) return;
 
     if(!r)
@@ -152,26 +153,24 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 
   pending_write_reqs_++;
 
-  CRUMB();
-
   return stream_->write_queue_size() == 0;
 }
 
 void Socket::destroy(Exception exception)
 {
-  CRUMB();
+  DBG("destroy with error");
   destroy_(true, exception);
 }
 
 void Socket::destroy()
 {
-  CRUMB();
+  DBG("destroy no error");
   destroy_(false, Exception());
 }
 
 void Socket::destroySoon()
 {
-  CRUMB();
+  DBG("destroy soon");
   writable(false);
   flags_ |= FLAG_DESTROY_SOON;
 
@@ -183,7 +182,7 @@ void Socket::destroySoon()
 
 void Socket::pause()
 {
-  CRUMB();
+  DBG("pause");
   if(stream_)
   {
     stream_->read_stop();
@@ -193,7 +192,7 @@ void Socket::pause()
 
 void Socket::resume()
 {
-  CRUMB();
+  DBG("resume");
   if(stream_)
   {
     stream_->read_start();
@@ -321,7 +320,7 @@ int Socket::remotePort() const
 // TODO: host name lookup (DNS) not supported
 bool Socket::connect(const std::string& ip_or_path, int port, event::connect::callback_type callback)
 {
-  CRUMB();
+  DBG("connect");
   // recreate socket handle if needed
   if(destroyed_ || !stream_)
   {
@@ -352,7 +351,7 @@ bool Socket::connect(const std::string& ip_or_path, int port, event::connect::ca
     if(rv)
     {
       stream_->on_complete([=](detail::resval r){
-        CRUMB();
+        DBG("on_complete");
         if(destroyed_) return;
 
         assert(connecting_);
@@ -421,7 +420,7 @@ void Socket::init_socket(detail::stream* stream)
   {
     // set on_read callback
     stream_->on_read([&](const char* buffer, std::size_t offset, std::size_t length, detail::stream* pending, detail::resval r){
-      CRUMB();
+      DBG("on_read");
       on_read(buffer, offset, length, r);
     });
 
@@ -440,7 +439,7 @@ void Socket::init_socket(detail::stream* stream)
 
 void Socket::destroy_(bool failed, Exception exception)
 {
-  CRUMB();
+  DBG("destroy");
   if(destroyed_) return;
 
   connect_queue_cleanup();
@@ -467,7 +466,7 @@ void Socket::destroy_(bool failed, Exception exception)
   }
 
   process::nextTick([=](){
-    CRUMB();
+    DBG("finishing destroy");
     if(failed) emit<event::error>(exception);
 
     // TODO: node.js implementation pass one argument whether there was errors or not.
@@ -487,7 +486,7 @@ void Socket::connect_queue_cleanup()
 
 void Socket::on_read(const char* buffer, std::size_t offset, std::size_t length, detail::resval rv)
 {
-  CRUMB();
+  DBG("on read");
   timers::active(timeout_emitter_);
 
   std::size_t end_pos = offset + length;
@@ -527,7 +526,8 @@ void Socket::on_read(const char* buffer, std::size_t offset, std::size_t length,
   }
 }
 
-
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[net::Server] " << msg)
 Server::Server(bool allowHalfOpen)
 : EventEmitter()
 , stream_(nullptr)
@@ -538,7 +538,7 @@ Server::Server(bool allowHalfOpen)
 , socket_type_(SocketType::None)
 , pipe_name_()
 {
-  CRUMB();
+  DBG("constructing");
   registerEvent<event::listening>();
   registerEvent<event::connection>();
   registerEvent<event::close>();
@@ -548,20 +548,20 @@ Server::Server(bool allowHalfOpen)
 // listen over TCP socket
 bool Server::listen(int port, const std::string& host, event::listening::callback_type listeningListener)
 {
-  CRUMB();
+  DBG("listen");
   return listen_(host, port, listeningListener);
 }
 
 // listen over unix-socket
 bool Server::listen(const std::string& path, event::listening::callback_type listeningListener)
 {
-  CRUMB();
+  DBG("listen");
   return listen_(path, 0, listeningListener);
 }
 
 // TODO: implement Socket::pause() function.
 void Server::pause(unsigned int msecs) {
-  CRUMB();
+  DBG("pause");
 }
 
 int Server::address(std::string& ip_or_pipe_name, int& port)
@@ -612,10 +612,10 @@ int Server::address(std::string& ip_or_pipe_name, int& port)
 
 void Server::emitCloseIfDrained()
 {
-  CRUMB();
+  DBG("close if drained");
   if(stream_ || connections_) return;
 
-  process::nextTick([&](){ CRUMB(); emit<event::close>(); });
+  process::nextTick([&](){ DBG("emitting close if drained"); emit<event::close>(); });
 }
 
 detail::stream* Server::create_server_handle(const std::string& ip_or_pipe_name, int port)
@@ -668,16 +668,15 @@ detail::stream* Server::create_server_handle(const std::string& ip_or_pipe_name,
 
 bool Server::listen_(const std::string& ip_or_pipe_name, int port, event::listening::callback_type listeningListener)
 {
-  CRUMB();
+  DBG("listen");
   if(listeningListener) on<event::listening>(listeningListener);
 
   if(!stream_)
   {
-    TRACE(stream_ = create_server_handle(ip_or_pipe_name, port));
+    stream_ = create_server_handle(ip_or_pipe_name, port);
     if(!stream_)
     {
       process::nextTick([&](){
-        CRUMB();
         emit<event::error>(Exception("Failed to create a server socket (1)."));
       });
       return false;
@@ -685,7 +684,7 @@ bool Server::listen_(const std::string& ip_or_pipe_name, int port, event::listen
   }
 
   stream_->on_connection([&](detail::stream* s, detail::resval r){
-    CRUMB();
+    DBG("on_connection");
     if(!r)
     {
       emit<event::error>(Exception(r, "Failed to accept client socket (1)."));
@@ -703,7 +702,7 @@ bool Server::listen_(const std::string& ip_or_pipe_name, int port, event::listen
       assert(socket);
 
       socket->once<Socket::internal_destroy_event>([&](){
-        CRUMB();
+        DBG("internal_destroy_event");
         connections_--;
         emitCloseIfDrained();
       });
@@ -722,14 +721,12 @@ bool Server::listen_(const std::string& ip_or_pipe_name, int port, event::listen
     stream_->close();
     stream_ = nullptr;
     process::nextTick([&](){
-      CRUMB();
       emit<event::error>(Exception(rv, "Failed to initiate listening on server socket (1)."));
     });
     return false;
   }
 
   process::nextTick([&](){
-    CRUMB();
     emit<event::listening>();
   });
   return true;
@@ -737,15 +734,15 @@ bool Server::listen_(const std::string& ip_or_pipe_name, int port, event::listen
 
 void Server::close()
 {
-  CRUMB();
+  DBG("close");
   if(!stream_)
   {
     throw Exception("Server is not running (1).");
   }
-  DBG(stream_->is_writable());
-  TRACE(stream_->close());
-  TRACE(stream_ = nullptr);
-  TRACE(emitCloseIfDrained());
+  DBG((stream_->is_writable()?"writable":"not writable"));
+  stream_->close();
+  stream_ = nullptr;
+  emitCloseIfDrained();
 }
 
 

@@ -1,14 +1,15 @@
 
-#define DEBUG_ENABLED
-
 #include "native/base.h"
 #include "native/detail/http.h"
+
+#undef DEBUG_ENABLED
+#define DEBUG_ENABLED 1
 
 namespace native {
 namespace detail {
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [url_obj] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[url_obj] " << msg)
 url_obj::url_obj() :
     handle_(), buf_() {
 }
@@ -109,8 +110,8 @@ bool url_obj::has_fragment() const {
   return handle_.field_set & (1 << UF_FRAGMENT);
 }
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [http_message] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[http_message] " << msg)
 
 http_message::http_message() :
     version_(), headers_(), trailers_(), method_(), url_(), status_(0),
@@ -324,8 +325,8 @@ Buffer http_message::renderTrailers() {
   return Buffer();
 }
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [http_parser_context] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[http_parser_context] " << msg)
 
 http_parser_context::http_parser_context(http_parser_type parser_type,
     http_message* message) :

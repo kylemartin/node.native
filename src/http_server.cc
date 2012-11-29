@@ -1,13 +1,12 @@
 
-#define DEBUG_ENABLED
-
 #include "native/http.h"
 
 namespace native { namespace http {
 
 /* ServerRequest **************************************************************/
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [ServerRequest] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[ServerRequest] " << msg)
+
 ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
     : IncomingMessage(socket, message) // TODO: use move constructor
 {
@@ -20,8 +19,8 @@ ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
 
 /* ServerResponse *************************************************************/
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [ServerResponse] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[ServerResponse] " << msg)
 ServerResponse::ServerResponse(net::Socket* socket)
     : OutgoingMessage(socket)
 {
@@ -95,8 +94,8 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
   this->_storeHeader(statusLine, headers);
 }
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [Server] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[Server] " << msg)
 Server::Server()
     : net::Server()
 {

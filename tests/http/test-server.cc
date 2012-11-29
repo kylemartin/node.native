@@ -61,7 +61,7 @@ TEST(Server) {
       /**
        * ReadableStream Events
        */
-      req->on<event::data>([&](const Buffer& buf){
+      req->on<event::data>([=](const Buffer& buf){
         std::cout << "[req] on data: " << buf.str() << std::endl;
         request_body->append(buf);
       });

@@ -1,13 +1,12 @@
 
-#define DEBUG_ENABLED
-
 #include "native/http.h"
 
 namespace native {
 namespace http {
 
-#undef DEBUG_PREFIX
-#define DEBUG_PREFIX " [IncomingMessage] "
+#undef DBG
+#define DBG(msg) DEBUG_PRINT("[IncomingMessage] " << msg)
+
 IncomingMessage::IncomingMessage(net::Socket* socket,
     detail::http_message* message) :
     socket_(socket), parser_(nullptr), complete_(false), readable_(true), paused_(
@@ -115,7 +114,7 @@ const std::string& IncomingMessage::getTrailer(const std::string& name) {
 void IncomingMessage::end() {
   CRUMB();
   if (haveListener<native::event::end>()) {
-    TRACE(emit<native::event::end>())
+    emit<native::event::end>();
   }
 }
 
