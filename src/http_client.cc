@@ -19,7 +19,7 @@ ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
     OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_(),
     path_(url.path_query_fragment()) {
-  CRUMB();
+  DBG("constructing");
   registerEvent<native::event::http::socket>();
   registerEvent<event::connect>();
   registerEvent<native::event::http::client::upgrade>();
@@ -29,6 +29,7 @@ ClientRequest::ClientRequest(detail::url_obj url,
 
   int port = url.has_port() ? url.port() : 80;
   std::string host = url.has_host() ? url.host() : "127.0.0.1"; // "localhost";
+  DBG("connecting to: " << host << ":" << port);
   // TODO: resolve hostname
 
   if (callback) {
@@ -50,20 +51,20 @@ ClientRequest::ClientRequest(detail::url_obj url,
   init_socket();
 
   _deferToConnect([this]() {
-    CRUMB();
+    DBG("deferred flush");
     _flush(); // flush output once connected
     });
 }
 
 void ClientRequest::abort() {
-  CRUMB();
+  DBG("abort");
   if (socket_) { // in-progress
     socket_->destroy();
   } else {
     // not yet assigned a socket
     // TODO: remove from pending requests
     _deferToConnect([this]() {
-      CRUMB();
+      DBG("deferred destroy");
       socket_->destroy();
     });
   }
@@ -77,14 +78,14 @@ void ClientRequest::setSocketKeepAlive(bool enable, int64_t initialDelay) {
 }
 
 void ClientRequest::_implicitHeader() {
-  CRUMB();
+  DBG("sending implicit header");
   _storeHeader(
       std::string(http_method_str(method_)) + " " + path_ + " HTTP/1.1\r\n",
       _renderHeaders());
 }
 
 void ClientRequest::_deferToConnect(std::function<void()> callback) {
-  CRUMB();
+  DBG("defer to connect");
   /*
    * Right now the socket is created when the request is constructed, but in the
    * future it may be assigned from a pool, and the request will be queued, so
@@ -127,7 +128,6 @@ void ClientRequest::_deferToConnect(std::function<void()> callback) {
 }
 
 void ClientRequest::init_socket() {
-  CRUMB();
 //js:  ClientRequest.prototype.onSocket = function(socket) {
 //js:    var req = this;
 //js:
@@ -164,6 +164,7 @@ void ClientRequest::init_socket() {
 //js:
 //js:  };
   process::nextTick([this]() {
+    DBG("initializing socket");
     // TODO: check if allocated Parser is leaking
       Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
 
@@ -194,7 +195,7 @@ void ClientRequest::init_socket() {
       // set on incoming callback on parser
       parser->on_incoming([=](net::Socket* socket,
           detail::http_message* message) {
-            CRUMB();
+            DBG("constructing ClientResponse for parser");
             IncomingMessage* result = new ClientResponse(socket, message);
             result->parser(parser);
             this->on_incoming_message(result);
@@ -208,7 +209,7 @@ void ClientRequest::init_socket() {
 }
 
 void ClientRequest::on_incoming_message(IncomingMessage* msg) {
-  CRUMB();
+  DBG("handling incoming message");
   ClientResponse* res = static_cast<ClientResponse*>(msg);
   net::Socket* socket = res->socket();
 

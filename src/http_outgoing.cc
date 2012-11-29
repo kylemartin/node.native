@@ -43,7 +43,17 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
     message_(),
     header_(),
     headerSent_(false)
-{ DBG("constructing"); }
+{
+  DBG("constructing");
+
+  // WritableStream event interface
+  registerEvent<native::event::drain>();
+  registerEvent<native::event::error>();
+  registerEvent<native::event::close>();
+  registerEvent<native::event::pipe>();
+
+  registerEvent<native::event::http::finish>();
+}
 
 // TODO: handle encoding
 void OutgoingMessage::write(const Buffer& buf) {
@@ -564,7 +574,6 @@ void OutgoingMessage::_buffer(const Buffer& buf) {
 void OutgoingMessage::_finish() {
   CRUMB();
   assert(socket_);
-  socket_->end();
   // TODO: Port DTrace
 //js:        if (this instanceof ServerResponse) {
 //js:        DTRACE_HTTP_SERVER_RESPONSE(this.connection);

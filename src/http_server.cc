@@ -27,9 +27,6 @@ ServerResponse::ServerResponse(net::Socket* socket)
   DBG("constructing");
     assert(socket_);
 
-    registerEvent<native::event::close>();
-    registerEvent<native::event::error>();
-
     socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
 
     this->status(200);
@@ -136,6 +133,67 @@ void Server::on_connection(net::Socket* socket) {
     });
 }
 
+//js: // The following callback is issued after the headers have been read on a
+//js: // new message. In this callback we setup the response object and pass it
+//js: // to the user.
+//js: parser.onIncoming = function(req, shouldKeepAlive) {
+//js:   incoming.push(req);
+//js:
+//js:   var res = new ServerResponse(req);
+//js:   debug('server response shouldKeepAlive: ' + shouldKeepAlive);
+//js:   res.shouldKeepAlive = shouldKeepAlive;
+//js:   DTRACE_HTTP_SERVER_REQUEST(req, socket);
+//js:
+//js:   if (socket._httpMessage) {
+//js:     // There are already pending outgoing res, append.
+//js:     outgoing.push(res);
+//js:   } else {
+//js:     res.assignSocket(socket);
+//js:   }
+//js:
+//js:   // When we're finished writing the response, check if this is the last
+//js:   // respose, if so destroy the socket.
+//js:   res.on('finish', function() {
+//js:     // Usually the first incoming element should be our request.  it may
+//js:     // be that in the case abortIncoming() was called that the incoming
+//js:     // array will be empty.
+//js:     assert(incoming.length == 0 || incoming[0] === req);
+//js:
+//js:     incoming.shift();
+//js:
+//js:     res.detachSocket(socket);
+//js:
+//js:     if (res._last) {
+//js:       socket.destroySoon();
+//js:     } else {
+//js:       // start sending the next message
+//js:       var m = outgoing.shift();
+//js:       if (m) {
+//js:         m.assignSocket(socket);
+//js:       }
+//js:     }
+//js:   });
+//js:
+//js:   if ('expect' in req.headers &&
+//js:       (req.httpVersionMajor == 1 && req.httpVersionMinor == 1) &&
+//js:       continueExpression.test(req.headers['expect'])) {
+//js:     res._expect_continue = true;
+//js:     if (self.listeners('checkContinue').length) {
+//js:       self.emit('checkContinue', req, res);
+//js:     } else {
+//js:       res.writeContinue();
+//js:       self.emit('request', req, res);
+//js:     }
+//js:   } else {
+//js:     self.emit('request', req, res);
+//js:   }
+//js:   return false; // Not a HEAD response. (Not even a response!)
+//js: };
+
+/*
+ * Parser received headers, create ServerRequest for parser to emit body and
+ * completion events on, and create ServerResponse and emit for users to write
+ */
 IncomingMessage* Server::on_incoming(Parser* parser, net::Socket* socket, detail::http_message* message) {
   DBG("creating ServerRequest for Parser");
   // Create ServerRequest from IncomingMessage
@@ -152,14 +210,13 @@ IncomingMessage* Server::on_incoming(Parser* parser, net::Socket* socket, detail
   // Create ServerResponse
   ServerResponse* res = new ServerResponse(socket);
   assert(res);
+  res->on<native::event::http::finish>([=](){
+    DBG("response finished, ending socket");
+    res->socket_->end();
+  });
   // Pass request and response to listener
   emit<native::event::http::server::request>(req, res);
 
-    // TODO: handle cleanup of ServerRequest better
-//                        delete req;
-
-//                      return 0; // Don't skip body
-//                      return 1; // Skip body
   return req;
 }
 

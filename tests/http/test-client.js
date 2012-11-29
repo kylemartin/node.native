@@ -51,6 +51,10 @@ var server = http.createServer(function(req, res) {
   console.log('Sent response');
 });
 
+server.on('connect', function() {
+	console.log('received connection');
+})
+
 server.listen(common.PORT, function() {
 	console.log('Server listening on ' + common.PORT);
 });

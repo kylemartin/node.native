@@ -252,7 +252,6 @@ namespace native
             {
                 return s->second.add<typename E::callback_type>(callback);
             }
-
             return nullptr;
         }
 
@@ -351,6 +350,7 @@ namespace native
                 return true;
             }
 
+            DBG("EVENT WAS NOT REGISTERED");
             return false;
         }
 

@@ -67,6 +67,7 @@ TEST(Client) {
               });
         });
 
+    std::cout << "[req] ending" << std::endl;
     req->end();
 
   });
