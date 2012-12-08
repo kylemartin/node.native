@@ -10,48 +10,6 @@
 
 #define CRLF "\r\n"
 
-/*
-
-# HTTP #
-
-Sockets are created by a Server for incoming connections or by a ClientRequest
-for a new connection. Parser factory manages pool of http_parser_context. Each
-Parser takes ownership of a Socket and begins to read and feed data to its
-http_parser_context. Users of a Parser register callbacks for allocating and
-handling an IncomingMessage once headers have been received. For servers, a
-ServerRequest is allocated, for clients, a ClientResponse. Users can attach data
-event handlers to the ServerRequest or ClientResponse to receive post or body
-data respectively.
-
-Since HTTP request/response messages are structurally similar, the
-detail::http_message class represents common features of both. It holds a status
-line, sets of leading and trailing headers, and an optional body.
-IncomingMessage and OutgoingMessage own an http_message and provide interfaces
-for read-only incoming messages and write-only outgoing messages, independent of
-the type of message (request/response).
-
-IncomingMessage implements the ReadableStream event interface and encapsulates
-the detail::http_message and logic common to the ServerRequest and
-ClientResponse sub-classes. ServerRequest and ClientResponse are further
-specialized for use in server and client contexts.
-
-OutgoingMessage implements the WritableStream event interface and encapsulates
-the detail::http_message and logic common to ServerResponse and ClientRequest
-sub-classes. ServerResponse and ClientResponse are further specialized for use
-in server and client contexts.
-
-For incoming messages, instances of detail::http_message are passed between
-the Parser, detail::http_parser_context and allocated IncomingMessage. They
-are created by the Parser and passed to its detail::http_parser_context to
-receive first line and initial headers. After headers are parsed by the
-http_parser_context the Parser's registered on_headers_complete callback is
-invoked to pass ownership of the http_message (though it will continue to
-update it as parsing continues). The Parser allocates an IncomingMessage at
-that time and passes ownership of the message to it. Since outgoing messages
-do not involve parsing a detail::http_message instance is owned by its
-associated OutgoingMessage.
-
- */
 namespace native
 {
   namespace http
@@ -94,123 +52,94 @@ namespace native
     struct socket : public util::callback_def<net::Socket*> {};
     struct Continue : public util::callback_def<>{};
     struct finish : public util::callback_def<> {};
+    struct headers : public util::callback_def<const detail::headers_type&>{};
+    struct trailers : public util::callback_def<const detail::headers_type&>{};
   }}
 
   namespace http {
     using detail::headers_type;
+    using detail::http_start_line;
 
-    /**
-     * Factory managing pool of Parser instances composed of a net::Socket and a
-     * detail::http_parser_context constructing a detail::http_message.
-     *
-     * Parser instances register event handlers on the net::Socket to receive
-     * and feed it to the http_parser_context. They are also responsible for
-     * managing the socket state in relation to the parser state (errors, etc.).
-     *
-     * Parser instances expect to process incoming messages from clients or 
-     * servers. Status line and headers are stored in an http_message
-     * and passed on to the on_incoming callback to construct an IncomingMessage
-     * and determine if the body needs to be parsed. The on_incoming callback
-     * MUST be registered before starting to receive a message and is expected
-     * to implement the the logic for handling an incoming request/response and
-     * processing the body as it is received.
-     */
-class Parser : public EventEmitter {
+    class Parser {
     public:
       /**
        * Callback that must be registered to allow construction of classes
        * derived from IncomingMessage. This is necessary because we want to
        * emit events on the derived type.
-       * Callback for handling request and response IncomingMessages. This gets
-       * called from on_handle_headers_complete to determine if we should skip 
-       * the body and to pass the IncomingMessage constructed from the headers, 
-       * which can in turn be passed in a request/response event so the user can
-       * register event handlers on the IncomingMessage.
        */
-      // TODO: Is there a better way to emit on IncomingMessage subtypes?
       typedef std::function<IncomingMessage*(net::Socket*,
-          detail::http_message*)> on_incoming_type;
+          Parser*)> on_incoming_type;
 
-      typedef std::shared_ptr<Parser> ptr;
+      typedef std::function<void(const Exception&)> on_error_type;
+      typedef std::function<void()> on_close_type;
+      typedef std::function<void()> on_end_type;
 
-      /**
-       * Create a parser of the specified type attached to the given socket
-       * which invokes the given callback to create an IncomingMessage instance.
-       *
-       * @param socket
-       * @param type
-       * @param callback
-       * @return
-       */
       static Parser* create(
           http_parser_type type,
           net::Socket* socket,
           on_incoming_type incoming_cb = nullptr);
 
-      /**
-       * Set the callback for allocating an incoming message
-       * @param callback [description]
-       */
-      void on_incoming(on_incoming_type callback);
+      void register_on_incoming(on_incoming_type callback);
+      void register_on_error(on_error_type callback);
+      void register_on_close(on_close_type callback);
+      void register_on_end(on_end_type callback);
+
+      // Accessors
+      bool parsing() const;
+      bool upgrade() const;
+      bool should_keep_alive() const;
+      const http_start_line& start_line() const;
+
+      ~Parser();
 
     private:
 
-      detail::http_message* message_; // Constructed by Parser
-      detail::http_parser_context context_;
       net::Socket* socket_; // Passed to constructor
-      IncomingMessage* incoming_; // Allocated via registered callback
       on_incoming_type on_incoming_;
+      on_error_type on_error_;
+      on_close_type on_close_;
+      on_end_type on_end_;
 
-      /**
-       * Private constructor
-       * @param type   http_parser_type value (HTTP_{REQUEST,RESPONSE,BOTH})
-       * @param socket net::Socket to be read by parser
-       */
+      IncomingMessage* incoming_; // Allocated via on_incoming_ callback
+
+      http_parser parser_;
+      http_parser_settings settings_;
+      http_start_line start_line_;
+
+      bool was_header_value_;
+      std::string last_header_field_;
+      std::string last_header_value_;
+
+      detail::resval error_;
+      bool parsing_;
+
+      bool upgrade_;
+      bool should_keep_alive_;
+
       Parser(http_parser_type type, net::Socket* socket);
 
-      /**
-       * Register callbacks with detail::http_parser_context
-       */
-      void registerContextCallbacks();
-
-      /**
-       * Register socket event handlers
-       */
       void registerSocketEvents();
-      /**
-       * Registered with detail::http_parser_context to process headers and 
-       * setup an IncomingMessage to pass to the on_incoming callback registered
-       * with this Parser
-       * @param  result [description]
-       * @return        [description]
-       */
+
       int on_headers_complete();
-
-      /**
-       * Registered with detail::http_parser_context to handle a chunk or 
-       * complete body of a message
-       * @param  buf Data buffer
-       * @param  off Offset into buffer
-       * @param  len Length of buffer
-       * @return     [description]
-       */
       int on_body(const char* buf, size_t off, size_t len);
-
-      /**
-       * Registered with detail::http_parser_context to handle a finished 
-       * message (received body and trailers)
-       * @param  result [description]
-       * @return        [description]
-       */
       int on_message_complete();
-
-      /**
-       * Registered with detail::http_parser_context to handle an error in 
-       * parsing data received on socket
-       * @param  e [description]
-       * @return   [description]
-       */
       int on_error(const native::Exception& e);
+
+      bool feed_data(const char* data, std::size_t offset, std::size_t length);
+
+      void add_header(const std::string& name, const std::string& value);
+
+      void reset();
+
+    public:
+      // http_parser_settings callbacks
+      static int on_message_begin_(http_parser* parser);
+      static int on_url_(http_parser* parser, const char *at, size_t len);
+      static int on_header_field_(http_parser* parser, const char* at, size_t len);
+      static int on_header_value_(http_parser* parser, const char* at, size_t len);
+      static int on_headers_complete_(http_parser* parser);
+      static int on_body_(http_parser* parser, const char* at, size_t len);
+      static int on_message_complete_(http_parser* parser);
 
     };
 
@@ -236,12 +165,19 @@ class Parser : public EventEmitter {
       bool complete_;
       bool readable_;
       bool paused_;
-      headers_type pendings_;
+      std::vector<Buffer> pendings_;
       bool endEmitted_;
-      detail::http_message* message_;
+      http_start_line message_;
+
+      headers_type headers_;
+      headers_type trailers_;
+
+      bool body_;
 
     public:
-      IncomingMessage(net::Socket* socket, detail::http_message* message);
+      IncomingMessage(net::Socket* socket, Parser* parser);
+
+      virtual ~IncomingMessage() {}
 
       // TODO: add move constructor
 
@@ -255,7 +191,6 @@ class Parser : public EventEmitter {
        * Accessors
        */
 
-      void parser(Parser* parser);
       Parser* parser();
 
       net::Socket* socket();
@@ -269,14 +204,8 @@ class Parser : public EventEmitter {
       int httpVersionMinor();
       const detail::url_obj& url();
 
-      const headers_type& headers();
-      const headers_type& trailers();
-
       bool shouldKeepAlive();
       bool upgrade();
-
-      const std::string& getHeader(const std::string& name);
-      const std::string& getTrailer(const std::string& name);
 
       /**
        * Called from parser to signal end of message
@@ -285,6 +214,20 @@ class Parser : public EventEmitter {
 
       // TODO: handle encoding
       //void setEncoding();
+
+      const headers_type& headers() const;
+      bool has_header(const std::string& name);
+      const std::string& get_header(const std::string& name);
+
+      const headers_type& trailers() const;
+      bool has_trailer(const std::string& name);
+      const std::string& get_trailer(const std::string& name);
+
+      void parser_add_header(const std::string& name, const std::string& value);
+      void parser_on_error(const Exception& e);
+      void parser_on_body(const Buffer& body);
+      virtual void parser_on_headers_complete();
+
     protected:
       void _emitPending(std::function<void()> callback);
       void _emitData(const Buffer& buf);
@@ -322,7 +265,9 @@ class Parser : public EventEmitter {
       bool shouldKeepAlive_;
       Buffer trailer_;
       bool finished_;
-      detail::http_message message_;
+      http_start_line start_line_;
+      headers_type headers_;
+      headers_type trailers_;
       Buffer header_;
       bool headerSent_;
 
@@ -354,17 +299,24 @@ class Parser : public EventEmitter {
       void version(const detail::http_version& version);
       void url(const detail::url_obj& url);
 
-      void addHeaders(const headers_type& value);
-      void setHeader(const std::string& name, const std::string& value);
-      void hasHeader(const std::string& name);
-      const std::string& getHeader(const std::string& name);
-      void removeHeader(const std::string& name);
+      const headers_type& headers() const;
+      void set_header(const std::string& name, const std::string& value);
+      void add_headers(const headers_type& value, bool append = false);
+      void add_header(const std::string& name, const std::string& value,
+          bool append= false);
+      bool has_header(const std::string& name);
+      const std::string& get_header(const std::string& name);
+      void remove_header(const std::string& name);
 
-      void addTrailers(const headers_type& value);
-      void setTrailer(const std::string& name, const std::string& value);
-      void hasTrailer(const std::string& name);
-      const std::string& getTrailer(const std::string& name);
-      void removeTrailer(const std::string& name);
+      const headers_type& trailers() const;
+      void set_trailer(const std::string& name, const std::string& value);
+      void add_trailers(const headers_type& value, bool append = false);
+      void add_trailer(const std::string& name, const std::string& value,
+          bool append = false);
+      bool has_trailer(const std::string& name);
+      const std::string& get_trailer(const std::string& name);
+      void remove_trailer(const std::string& name);
+
 
     protected:
       virtual void _implicitHeader() {}
@@ -407,13 +359,16 @@ class Parser : public EventEmitter {
      */
     class ServerRequest : public IncomingMessage
     {
-        friend class Server;
-
-    protected:
-        ServerRequest(net::Socket* socket, detail::http_message* message);
-
-        virtual ~ServerRequest() {}
+    private:
+        Server* server_;
     public:
+        ServerRequest(net::Socket* socket, Parser* parser);
+
+        ~ServerRequest() {}
+
+        void parser_on_headers_complete();
+        void server(Server* server);
+
     };
 
     /**
@@ -422,14 +377,11 @@ class Parser : public EventEmitter {
      */
     class ServerResponse : public OutgoingMessage
     {
-        friend class Server;
-
-    protected:
+    public:
         ServerResponse(net::Socket* socket);
 
         virtual ~ServerResponse() {}
 
-    public:
         void _implicitHeader();
         void writeContinue();
         void writeHead(int statusCode, const std::string& reasonPhrase,
@@ -457,8 +409,7 @@ class Parser : public EventEmitter {
 
         void on_connection(net::Socket* socket);
 
-        IncomingMessage* on_incoming(Parser* parser,
-            net::Socket* socket, detail::http_message* message);
+        IncomingMessage* on_incoming(net::Socket* socket, Parser* parser);
     };
 
     /**
@@ -470,7 +421,7 @@ class Parser : public EventEmitter {
     class ClientResponse : public IncomingMessage
     {
     public:
-      ClientResponse(net::Socket* socket, detail::http_message* message);
+      ClientResponse(net::Socket* socket, Parser* message);
     };
 
     /**

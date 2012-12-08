@@ -40,7 +40,9 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
     shouldKeepAlive_(false),
     trailer_(),
     finished_(false),
-    message_(),
+    start_line_(),
+    headers_(),
+    trailers_(),
     header_(),
     headerSent_(false)
 {
@@ -272,60 +274,97 @@ void OutgoingMessage::destroy(const Exception& e) {
 }
 
 void OutgoingMessage::method(const http_method& method) {
-  this->message_.method(method);
+  this->start_line_.method(method);
 }
 
 void OutgoingMessage::status(int value) { 
   // calling this after response was sent is error
-  this->message_.status(value); 
+  this->start_line_.status(value);
 }
 
 void OutgoingMessage::version(const detail::http_version& version) {
-  this->message_.version(version);
+  this->start_line_.version(version);
 }
 
 void OutgoingMessage::url(const detail::url_obj& url) {
-  this->message_.url(url);
+  this->start_line_.url(url);
 }
 
-void OutgoingMessage::addHeaders(const headers_type& value) {
-  this->message_.add_headers(value);
+const headers_type& OutgoingMessage::headers() const {
+  return headers_;
 }
 
-void OutgoingMessage::setHeader(const std::string& name, const std::string& value) {
-  // TODO: throw if headers already sent
-  this->message_.set_header(name, value);
+void OutgoingMessage::set_header(const std::string& name,
+    const std::string& value) {
+  headers_[name] = value;
 }
 
-void OutgoingMessage::hasHeader(const std::string& name) {
-  this->message_.has_header(name);
+void OutgoingMessage::add_headers(const headers_type& value, bool append) {
+  for (headers_type::const_iterator it = value.begin(); it != value.end();
+      ++it) {
+    add_header(it->first, it->second, append);
+  }
 }
 
-const std::string& OutgoingMessage::getHeader(const std::string& name) {
-  return this->message_.get_header(name);
+void OutgoingMessage::add_header(const std::string& name, const std::string& value,
+    bool append) {
+  headers_[name] =
+      (has_header(name) && append) ? headers_[name] + "," + value : value;
 }
 
-void OutgoingMessage::removeHeader(const std::string& name) {
-  // TODO: throw if headers already sent
-  this->message_.remove_header(name);
+bool OutgoingMessage::has_header(const std::string& name) {
+  return headers_.count(name) > 0;
 }
 
-
-void OutgoingMessage::addTrailers(const headers_type& value) {
-  this->message_.add_trailers(value);
+const std::string& OutgoingMessage::get_header(const std::string& name) {
+  headers_type::iterator it = headers_.find(name);
+  if (it == headers_.end()) {
+    // TODO: throw proper error
+//    throw Exception("header not found");
+  }
+  return it->second;
 }
 
-void OutgoingMessage::setTrailer(const std::string& name, const std::string& value) {
-  this->message_.set_trailer(name, value);
+void OutgoingMessage::remove_header(const std::string& name) {
+  headers_.erase(name);
 }
-void OutgoingMessage::hasTrailer(const std::string& name) {
-  this->message_.has_trailer(name);
+
+const headers_type& OutgoingMessage::trailers() const {
+  return trailers_;
 }
-const std::string& OutgoingMessage::getTrailer(const std::string& name) {
-  return this->message_.get_trailer(name);
+
+void OutgoingMessage::set_trailer(const std::string& name,
+    const std::string& value) {
+  trailers_[name] = value;
 }
-void OutgoingMessage::removeTrailer(const std::string& name) {
-  this->message_.remove_trailer(name);
+
+void OutgoingMessage::add_trailers(const headers_type& value, bool append) {
+  for (headers_type::const_iterator it = value.begin(); it != value.end();
+      ++it) {
+    add_trailer(it->first, it->second, append);
+  }
+}
+void OutgoingMessage::add_trailer(const std::string& name,
+    const std::string& value, bool append) {
+  trailers_[name] =
+      (has_header(name) && append) ? trailers_[name] + "," + value : value;
+}
+
+bool OutgoingMessage::has_trailer(const std::string& name) {
+  return trailers_.count(name) > 0;
+}
+
+const std::string& OutgoingMessage::get_trailer(const std::string& name) {
+  headers_type::iterator it = trailers_.find(name);
+  if (it == trailers_.end()) {
+    // TODO: throw proper error
+//    throw Exception("header not found");
+  }
+  return it->second;
+}
+
+void OutgoingMessage::remove_trailer(const std::string& name) {
+  trailers_.erase(name);
 }
 
 void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_type& headers) {
@@ -410,7 +449,7 @@ void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_t
 
 headers_type OutgoingMessage::_renderHeaders() {
   CRUMB();
-  return message_.headers();
+  return headers_;
 }
 
 void OutgoingMessage::_flush() {

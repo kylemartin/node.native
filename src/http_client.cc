@@ -6,9 +6,8 @@ namespace http {
 /* Client Response ************************************************************/
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[ClientResponse] " << msg)
-ClientResponse::ClientResponse(net::Socket* socket,
-    detail::http_message* message) :
-    IncomingMessage(socket, message) {
+ClientResponse::ClientResponse(net::Socket* socket, Parser* parser) :
+    IncomingMessage(socket, parser) {
   CRUMB();
 }
 
@@ -193,11 +192,10 @@ void ClientRequest::init_socket() {
           });
 
       // set on incoming callback on parser
-      parser->on_incoming([=](net::Socket* socket,
-          detail::http_message* message) {
+      parser->register_on_incoming([=](net::Socket* socket,
+          Parser* parser) {
             DBG("constructing ClientResponse for parser");
-            IncomingMessage* result = new ClientResponse(socket, message);
-            result->parser(parser);
+            IncomingMessage* result = new ClientResponse(socket, parser);
             this->on_incoming_message(result);
             return result;
 

@@ -7,10 +7,15 @@ namespace http {
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[IncomingMessage] " << msg)
 
-IncomingMessage::IncomingMessage(net::Socket* socket,
-    detail::http_message* message) :
-    socket_(socket), parser_(nullptr), complete_(false), readable_(true), paused_(
-        false), pendings_(), endEmitted_(false), message_(message) {
+IncomingMessage::IncomingMessage(net::Socket* socket, Parser* parser)
+: socket_(socket)
+, parser_(parser)
+, complete_(false)
+, readable_(true)
+, paused_(false)
+, pendings_()
+, endEmitted_(false)
+{
   DBG("constructing");
   assert(socket);
   // ReadableStream events
@@ -18,34 +23,62 @@ IncomingMessage::IncomingMessage(net::Socket* socket,
   registerEvent<native::event::end>();
   registerEvent<native::event::error>();
   registerEvent<native::event::close>();
+
+  // IncomingMessage events
+  registerEvent<native::event::http::headers>();
+  registerEvent<native::event::http::trailers>();
 }
 
 // ReadbleStream interface
 
+/**
+ * True by default, but turns false after an 'error' occurred, the stream came
+ * to an 'end', or destroy() was called.
+ * @return
+ */
 bool IncomingMessage::readable() {
-  return false;
+  return readable_;
 }
 
 void IncomingMessage::pause() {
   CRUMB();
+  socket_->pause();
+  paused_ = true;
 }
 void IncomingMessage::resume() {
   CRUMB();
+  assert(socket_);
+  socket_->resume();
+
+  _emitPending(nullptr);
 }
 
 void IncomingMessage::destroy(const Exception& e) {
   socket_->destroy(e);
 }
-// ReadbleStream interface
 
+/**
+ * Emit data events that were queued after pausing socket
+ * @param callback
+ */
 void IncomingMessage::_emitPending(std::function<void()> callback) {
   CRUMB();
+  if (pendings_.size() > 0) {
+    for (std::vector<Buffer>::iterator it = pendings_.begin();
+        it != pendings_.end(); ++it) {
+      // TODO: do this on next tick
+      emit<native::event::data>(*it);
+    }
+  }
 }
 void IncomingMessage::_emitData(const Buffer& buf) {
   CRUMB();
+  emit<native::event::data>(buf);
 }
 void IncomingMessage::_emitEnd() {
   CRUMB();
+  if (!endEmitted_) emit<native::event::end>();
+  endEmitted_ = true;
 }
 void IncomingMessage::_addHeaderLine(const std::string& field,
     const std::string& value) {
@@ -56,9 +89,6 @@ void IncomingMessage::_addHeaderLine(const std::string& field,
  * Accessors
  */
 
-void IncomingMessage::parser(Parser* parser) {
-  parser_ = parser;
-}
 Parser* IncomingMessage::parser() {
   return parser_;
 }
@@ -69,46 +99,32 @@ net::Socket* IncomingMessage::socket() {
 
 // Read-only HTTP message
 int IncomingMessage::statusCode() {
-  return message_->status();
+  return parser_->start_line().status();
 }
 const http_method& IncomingMessage::method() {
-  return message_->method();
+  return parser_->start_line().method();
 }
 const detail::http_version& IncomingMessage::httpVersion() {
-  return message_->version();
+  return parser_->start_line().version();
 }
 std::string IncomingMessage::httpVersionString() {
-  return message_->version_string();
+  return parser_->start_line().version_string();
 }
 int IncomingMessage::httpVersionMajor() {
-  return message_->version_major();
+  return parser_->start_line().version_major();
 }
 int IncomingMessage::httpVersionMinor() {
-  return message_->version_minor();
+  return parser_->start_line().version_minor();
 }
 const detail::url_obj& IncomingMessage::url() {
-  return message_->url();
-}
-
-const headers_type& IncomingMessage::headers() {
-  return message_->headers();
-}
-const headers_type& IncomingMessage::trailers() {
-  return message_->trailers();
+  return parser_->start_line().url();
 }
 
 bool IncomingMessage::shouldKeepAlive() {
-  return message_->should_keep_alive();
+  return parser_->should_keep_alive();
 }
 bool IncomingMessage::upgrade() {
-  return message_->upgrade();
-}
-
-const std::string& IncomingMessage::getHeader(const std::string& name) {
-  return message_->get_header(name);
-}
-const std::string& IncomingMessage::getTrailer(const std::string& name) {
-  return message_->get_trailer(name);
+  return parser_->upgrade();
 }
 
 void IncomingMessage::end() {
@@ -116,6 +132,84 @@ void IncomingMessage::end() {
   if (haveListener<native::event::end>()) {
     emit<native::event::end>();
   }
+}
+
+/**
+ * Called from a Parser when a header/trailer received
+ * @param name
+ * @param value
+ */
+void IncomingMessage::parser_add_header(const std::string& name, const std::string& value) {
+  CRUMB();
+  bool append = false; // TODO: check headers to append by default
+  if (!body_) {
+    headers_[name] =
+        (has_header(name) && append) ? headers_[name] + "," + value : value;
+  } else {
+    trailers_[name] =
+        (has_trailer(name) && append) ? trailers_[name] + "," + value : value;
+  }
+}
+
+const headers_type& IncomingMessage::headers() const {
+  return headers_;
+}
+
+bool IncomingMessage::has_header(const std::string& name) {
+  return headers_.count(name) > 0;
+}
+
+const std::string& IncomingMessage::get_header(const std::string& name) {
+  headers_type::iterator it = headers_.find(name);
+  if (it == headers_.end()) {
+    // TODO: throw proper error
+//    throw Exception("header not found");
+  }
+  return it->second;
+}
+
+const headers_type& IncomingMessage::trailers() const {
+  return headers_;
+}
+
+bool IncomingMessage::has_trailer(const std::string& name) {
+  return trailers_.count(name) > 0;
+}
+
+const std::string& IncomingMessage::get_trailer(const std::string& name) {
+  headers_type::iterator it = trailers_.find(name);
+  if (it == trailers_.end()) {
+    // TODO: throw proper error
+//    throw Exception("header not found");
+  }
+  return it->second;
+}
+
+/**
+ * Called from the Parser when a body chunk is received
+ * @param body
+ */
+void IncomingMessage::parser_on_body(const Buffer& body) {
+  body_ = true;
+  if (paused_) {
+    // If paused socket, store pending buffer
+    pendings_.push_back(body);
+  } else {
+    // Otherwise emit data event
+    emit<native::event::data>(body);
+  }
+}
+
+/**
+ * Called from the Parser when an error occurs
+ * @param e
+ */
+void IncomingMessage::parser_on_error(const Exception& e) {
+  emit<native::event::error>(e);
+}
+
+void IncomingMessage::parser_on_headers_complete() {
+  CRUMB();
 }
 
 } //namespace http

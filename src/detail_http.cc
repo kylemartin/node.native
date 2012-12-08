@@ -23,6 +23,11 @@ bool url_obj::parse(const char* buffer, std::size_t length,
   return http_parser_parse_url(buffer, length, is_connect, &handle_) == 0;
 }
 
+void url_obj::reset() {
+  handle_ = http_parser_url();
+  buf_ = std::string();
+}
+
 std::string url_obj::schema() const {
   if (has_schema())
     return buf_.substr(handle_.field_data[UF_SCHEMA].off,
@@ -110,27 +115,215 @@ bool url_obj::has_fragment() const {
   return handle_.field_set & (1 << UF_FRAGMENT);
 }
 
+/* http_start_line ************************************************************/
+
+http_start_line::http_start_line()
+: version_()
+, method_()
+, url_()
+, status_(0)
+{}
+
+http_start_line::http_start_line(const http_start_line& c)
+: version_(c.version_)
+, method_(c.method_)
+, url_(c.url_)
+, status_(c.status_)
+{}
+
+http_start_line::http_start_line(http_start_line&& c)
+: version_(std::move(c.version_))
+, method_(std::move(c.method_))
+, url_(std::move(c.url_))
+, status_(std::move(c.status_))
+{}
+
+http_start_line::~http_start_line() {
+}
+
+const http_version& http_start_line::version() const {
+  return version_;
+}
+void http_start_line::version(const http_version& v) {
+  version_ = v;
+}
+
+bool http_start_line::version(unsigned short major, unsigned short minor) {
+  if (major == 1 && minor == 0) {
+    version_ = HTTP_1_0;
+  } else if (major == 1 && minor == 1) {
+    version_ = HTTP_1_1;
+  } else {
+    version_ = HTTP_UNKNOWN_VERSION;
+    return false;
+  }
+  return true; // Valid version major/minor
+}
+
+int http_start_line::version_major() const {
+  switch (version_) {
+  case HTTP_1_0:
+  case HTTP_1_1:
+    return 1;
+  default:
+    return -1;
+  }
+}
+
+int http_start_line::version_minor() const {
+  switch (version_) {
+  case HTTP_1_0:
+    return 0;
+  case HTTP_1_1:
+    return 1;
+  default:
+    return -1;
+  }
+}
+
+std::string http_start_line::version_string() const {
+  switch (version_) {
+  case HTTP_1_0:
+    return "HTTP/1.0";
+  case HTTP_1_1:
+    return "HTTP/1.1";
+  default:
+    return "";
+  }
+}
+
+const url_obj& http_start_line::url() const {
+  return url_;
+}
+bool http_start_line::url(const std::string& u, bool is_connect) {
+  return url_.parse(u.c_str(), u.size(), is_connect);
+}
+bool http_start_line::url(const char* at, std::size_t len, bool is_connect) {
+  return url_.parse(at, len, is_connect);
+}
+void http_start_line::url(const url_obj& u) {
+  url_ = u;
+}
+
+const http_method& http_start_line::method() const {
+  return method_;
+}
+void http_start_line::method(const http_method& m) {
+  method_ = m;
+}
+
+unsigned short http_start_line::status() const {
+  return status_;
+}
+void http_start_line::status(const unsigned short& s) {
+  status_ = s;
+}
+
+void http_start_line::reset() {
+  url_.reset();
+  version_ = http_version();
+  method_ = http_method();
+  status_ = 0;
+}
+
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[http_message] " << msg)
 
+#if 0
+/**
+ * An http_message encapsulates status line and headers shared by
+ * request and response messages. It is used during parsing to hold
+ * message details for an incoming message. It is also used to prepare
+ * an outgoing message for transmission.
+ *
+ * It does not store the message body as this will be received asynchronously.
+ * It does allow a content length to be set when the body length is known.
+ *
+ * Consists of:
+ * - the first line (version and method for request, status for response)
+ * - leading headers
+ * - optional trailing headers (for chunked encoding)
+ */
+class http_message {
+private:
+
+  // Message buffers
+  http_start_line start_line_;
+  headers_type headers_;
+  Buffer body_;
+  headers_type trailers_;
+
+  // Headers
+  bool upgrade_;
+  bool should_keep_alive_;
+
+  size_t length_;
+
+public:
+  http_message();
+  http_message(const http_message& c);
+  http_message(http_message&& c);
+  ~http_message();
+
+  const http_start_line& start_line() const;
+  void start_line(const http_start_line& line);
+
+public:
+  const headers_type& headers() const;
+  void set_header(const std::string& name, const std::string& value);
+  void add_headers(const headers_type& value, bool append = false);
+  void add_header(const std::string& name, const std::string& value,
+      bool append= false);
+  bool has_header(const std::string& name);
+  const std::string& get_header(const std::string& name);
+  void remove_header(const std::string& name);
+
+  const headers_type& trailers() const;
+  void set_trailer(const std::string& name, const std::string& value);
+  void add_trailers(const headers_type& value, bool append = false);
+  void add_trailer(const std::string& name, const std::string& value,
+      bool append = false);
+  bool has_trailer(const std::string& name);
+  const std::string& get_trailer(const std::string& name);
+  void remove_trailer(const std::string& name);
+
+  bool upgrade() const;
+  void upgrade(bool b);
+
+  bool should_keep_alive() const;
+  void should_keep_alive(bool b);
+
+  size_t length() const;
+  void length(size_t l);
+
+  /**
+   * Prepare headers to be sent over the wire.
+   * @return
+   */
+   Buffer renderHeaders();
+
+  /**
+   * Prepare trailers to be sent over the wire.
+   * @return
+   */
+   Buffer renderTrailers();
+
+};
+
 http_message::http_message() :
-    version_(), headers_(), trailers_(), method_(), url_(), status_(0),
+    headers_(), trailers_(),
     upgrade_(false), should_keep_alive_(true), length_() {
 }
 
 http_message::http_message(const http_message& c) :
-    version_(c.version_), headers_(c.headers_), trailers_(c.trailers_),
-    method_(c.method_), url_(c.url_), status_(c.status_), upgrade_(c.upgrade_),
+    headers_(c.headers_), trailers_(c.trailers_),
+    upgrade_(c.upgrade_),
     should_keep_alive_(c.should_keep_alive_), length_(c.length_) {
 }
 
 http_message::http_message(http_message&& c)
-: version_(std::move(c.version_))
-, headers_(std::move(c.headers_))
+: headers_(std::move(c.headers_))
 , trailers_(std::move(c.trailers_))
-, method_(std::move(c.method_))
-, url_(std::move(c.url_))
-, status_(std::move(c.status_))
 , upgrade_(std::move(c.upgrade_))
 , should_keep_alive_(std::move(c.should_keep_alive_))
 , length_(std::move(c.length_))
@@ -216,84 +409,6 @@ void http_message::remove_trailer(const std::string& name) {
   trailers_.erase(name);
 }
 
-const http_version& http_message::version() const {
-  return version_;
-}
-void http_message::version(const http_version& v) {
-  version_ = v;
-}
-
-bool http_message::version(unsigned short major, unsigned short minor) {
-  if (major == 1 && minor == 0) {
-    version_ = HTTP_1_0;
-  } else if (major == 1 && minor == 1) {
-    version_ = HTTP_1_1;
-  } else {
-    version_ = HTTP_UNKNOWN_VERSION;
-    return false;
-  }
-  return true; // Valid version major/minor
-}
-
-int http_message::version_major() {
-  switch (version_) {
-  case HTTP_1_0:
-  case HTTP_1_1:
-    return 1;
-  default:
-    return -1;
-  }
-}
-
-int http_message::version_minor() {
-  switch (version_) {
-  case HTTP_1_0:
-    return 0;
-  case HTTP_1_1:
-    return 1;
-  default:
-    return -1;
-  }
-}
-
-std::string http_message::version_string() {
-  switch (version_) {
-  case HTTP_1_0:
-    return "HTTP/1.0";
-  case HTTP_1_1:
-    return "HTTP/1.1";
-  default:
-    return "";
-  }
-}
-
-const url_obj& http_message::url() const {
-  return url_;
-}
-bool http_message::url(const std::string& u, bool is_connect) {
-  return url_.parse(u.c_str(), u.size(), is_connect);
-}
-bool http_message::url(const char* at, std::size_t len, bool is_connect) {
-  return url_.parse(at, len, is_connect);
-}
-void http_message::url(const url_obj& u) {
-  url_ = u;
-}
-
-const http_method& http_message::method() const {
-  return method_;
-}
-void http_message::method(const http_method& m) {
-  method_ = m;
-}
-
-unsigned short http_message::status() const {
-  return status_;
-}
-void http_message::status(const unsigned short& s) {
-  status_ = s;
-}
-
 bool http_message::upgrade() const {
   return upgrade_;
 }
@@ -324,250 +439,7 @@ Buffer http_message::renderTrailers() {
   // TODO: return trailers buffer
   return Buffer();
 }
-
-#undef DBG
-#define DBG(msg) DEBUG_PRINT("[http_parser_context] " << msg)
-
-http_parser_context::http_parser_context(http_parser_type parser_type,
-    http_message* message) :
-    parser_(), settings_(), message_(message), was_header_value_(true),
-    last_header_field_(), last_header_value_(), error_(),
-    parse_completed_(false), have_flushed_(false), on_headers_complete_(),
-    on_body_(), on_message_complete_(), on_error_() {
-  http_parser_init(&parser_, parser_type);
-  parser_.data = this;
-  settings_.on_message_begin = on_message_begin;
-  settings_.on_url = on_url;
-  settings_.on_header_field = on_header_field;
-  settings_.on_header_value = on_header_value;
-  settings_.on_headers_complete = on_headers_complete;
-  settings_.on_body = on_body;
-  settings_.on_message_complete = on_message_complete;
-}
-
-http_parser_context::~http_parser_context() {
-}
-
-int http_parser_context::on_message_begin(http_parser* parser) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  // Reset parser state
-  self->message_->url(url_obj()); // TODO: add reset function to url_obj
-  return 0;
-}
-
-int http_parser_context::on_url(http_parser* parser, const char *at,
-    size_t len) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  assert(at && len);
-
-  if (!self->message_->url(at, len)) {
-    self->error_ = resval(error::http_parser_url_fail);
-    return 1;
-  }
-
-  return 0;
-}
-
-int http_parser_context::on_header_field(http_parser* parser, const char* at,
-    size_t len) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  if (self->was_header_value_) {
-    // new field started
-    if (!self->last_header_field_.empty()) {
-      // add new entry
-      self->message_->add_header(self->last_header_field_,
-          self->last_header_value_);
-      self->last_header_value_.clear();
-
-      // TODO: call Flush if ran out of space for headers
-    }
-
-    self->last_header_field_ = std::string(at, len);
-    self->was_header_value_ = false;
-  } else {
-    // appending
-    self->last_header_field_ += std::string(at, len);
-  }
-
-  return 0;
-}
-
-int http_parser_context::on_header_value(http_parser* parser, const char* at,
-    size_t len) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  if (!self->was_header_value_) {
-    self->last_header_value_ = std::string(at, len);
-    self->was_header_value_ = true;
-  } else {
-    // appending
-    self->last_header_value_ += std::string(at, len);
-  }
-
-  return 0;
-}
-
-/**
- * Fill in http_message using current parser state
- */
-void http_parser_context::prepare_message() {
-  CRUMB();
-
-  /*
-   * Common
-   */
-
-  // HTTP version
-  message_->version(parser_.http_major, parser_.http_minor);
-
-  /*
-   * Response
-   */
-
-  std::string host("");
-  int port = 80; // default port
-  if (port) {
-  } // XXX: avoid unused warnings
-  // HTTP 1.1 requires "Host" header
-  if (message_->version() == HTTP_1_1) {
-    // get host and port info from header entry "Host"
-    auto x = message_->headers().find("host");
-    if (x != message_->headers().end()) {
-      auto s = x->second;
-      auto colon = s.find_last_of(':');
-      if (colon == s.npos) {
-        host = s;
-      } else {
-        host = s.substr(0, colon);
-        port = std::stoi(s.substr(colon + 1));
-      }
-    }
-  }
-
-  // HTTP status
-  message_->status(parser_.status_code);
-
-  /*
-   * Request
-   */
-
-  // HTTP method
-  message_->method(static_cast<http_method>(parser_.method));
-
-  /*
-   * Headers
-   */
-
-  // HTTP keep-alive
-  message_->should_keep_alive(http_should_keep_alive(&parser_));
-
-  // HTTP upgrade
-  message_->upgrade(parser_.upgrade > 0);
-
-}
-
-int http_parser_context::on_headers_complete(http_parser* parser) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-  assert(&self->parser_ == parser);
-
-  // add last entry if any
-  if (!self->last_header_field_.empty()) {
-    // add new entry
-    self->message_->add_header(self->last_header_field_,
-        self->last_header_value_);
-  }
-
-  self->prepare_message();
-
-  // Call handle_headers_complete
-  if (self->on_headers_complete_) {
-    self->on_headers_complete_();
-  }
-  return 0;
-}
-
-int http_parser_context::on_body(http_parser* parser, const char* at,
-    size_t len) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  // TODO: append body chunks to message
-
-  // Call handle_body
-  if (self->on_body_) {
-    self->on_body_(at, 0, len);
-  }
-  return 0;
-}
-
-int http_parser_context::on_message_complete(http_parser* parser) {
-  CRUMB();
-  auto self = reinterpret_cast<http_parser_context*>(parser->data);
-  assert(self);
-
-  self->parse_completed_ = true;
-
-  // Call handle_message_complete
-  if (self->on_message_complete_) {
-    self->on_message_complete_();
-  }
-  return 0;
-}
-
-void http_parser_context::on_headers_complete(
-    on_headers_complete_type callback) {
-  on_headers_complete_ = callback;
-}
-
-void http_parser_context::on_body(on_body_type callback) {
-  on_body_ = callback;
-}
-
-void http_parser_context::on_message_complete(
-    on_message_complete_type callback) {
-  on_message_complete_ = callback;
-}
-
-void http_parser_context::on_error(on_error_type callback) {
-  on_error_ = callback;
-}
-
-bool http_parser_context::is_finished() const {
-  // there was an error or parse completed.
-  return !error_ || parse_completed_;
-}
-
-bool http_parser_context::feed_data(const char* data, std::size_t offset,
-    std::size_t length) {
-  CRUMB();
-  ::http_parser_execute(&parser_, &settings_, &data[offset], length);
-  if (parser_.http_errno != HPE_OK) {
-    // there was an error
-    if (on_error_)
-      on_error_(resval(parser_.http_errno));
-    return true;
-  } else if (parse_completed_) {
-    // finished, should have invoked on_message_complete already
-    return true;
-  } else {
-    // need more data
-    return false;
-  }
-}
+#endif
 
 std::string http_status_text(int status_code) {
   switch (status_code) {

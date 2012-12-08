@@ -1,4 +1,200 @@
 
+HTTP Client States
+- CONNECTING (socket, connect, timeout, error)
+    - Called request(...), created and returned ClientRequest, resolving domain 
+    then/or creating socket and opening connection (and emitting socket event)
+    - ClientRequest can be used upon return to set headers, write body then/or
+    end request. 
+    - Headers won't be sent upon connection unless end or flush called, in which case they will be rendered and buffered (along with body) and sent once connected. Once end/flush called headers cannot be changed.
+    - Request body will be buffered up to a limit beyond which the user must wait for *drain* events on the ClientRequest to continue writing (Buffer could use low/high watermarks to emit *drain* before buffer empty).
+    - If socket connection timeout expires *timeout* emitted
+    - Once connected the *connect* event is emitted and state becomes HEADERS 
+- HEADERS (drain, error, close)
+    - *connect* emitted when socket connected but no data sent yet
+    - After *connect* event emitted, headers will be rendered and written out
+    - If all headers written and body required but not written or body not required and request not ended, then *drain* event emitted for user to send more headers, body, or end request
+    - If no body required and end called then move to WAITING
+    - If body required and write called move to BODY
+    - If body required and using chunked TE and finish called write empty body and move to TRAILERS
+- BODY (drain, error, close)
+    - Writing body, headers cannot be changed, but trailers can be set
+    - When write buffer empty but request not ended then *drain* emitted
+    - When using chunked TE finish can be called to indicate the end of the body and move to TRAILERS
+    - When end called, write out any trailers if using chunked TE and move to WAITING. This bypasses TRAILERS and does not allow for trailers to be added like calling finish allows
+- TRAILERS (drain, error, close)
+    - Using chunked TE and called finish to stop writing body, writing trailers
+    - If all trailers written but end not called then emit *drain*
+    - When end called, finish writing trailers and move to WAITING
+- WAITING (response, error, close)
+    - Finished request and placed ClientRequest on response queue to wait for response to be received
+    - When response headers received, ClientResponse created and *response* emitted on dequeued ClientRequest, move to RESPONSE
+- RESPONSE (headers, data, trailers, end, error, close)
+    - *headers* emitted as headers received (when parser header limit reached)
+    - Once all headers received and no body, *end* emitted
+    - As body received, *data* emitted
+    - Once body finished and no trailers, *end* emitted 
+    - *trailers* emitted as trailers received, then *end* emitted once finished
+
+HTTP Server States
+- LISTENING (listening, connection, request, error, close)
+    - Once listening socket opened *listening* emitted
+    - On each socket connection, *connection* emitted before reading socket
+    - Once request headers received, ServerRequest and ServerResponse created and *request* emitted and connection (not server) moves to REQUEST
+- REQUEST (headers, data, trailers, error, close)
+    - *headers* emitted as headers received (when parser header limit reached)
+    - Once all headers received and no body, *end* emitted
+    - As body received, *data* emitted
+    - Once body finished and no trailers, *end* emitted 
+    - *trailers* emitted as trailers received, then *end* emitted once finished
+    - When request ends connection moves to HEADERS
+- HEADERS (drain, error, close)
+    - After request *end* event emitted, headers will be rendered and written out
+    - If all headers written and body required but not written or body not required and request not ended, then *drain* event emitted for user to send more headers, body, or end response
+    - If no body required and end called then move to WAITING
+    - If body required and write called move to BODY
+    - If body required and using chunked TE and finish called write empty body and move to TRAILERS
+- BODY (drain, error, close)
+    - Writing body, headers cannot be changed, but trailers can be set
+    - When write buffer empty but response not ended then *drain* emitted
+    - When using chunked TE finish can be called to indicate the end of the body and move to TRAILERS
+    - When end called, write out any trailers if using chunked TE and move to WAITING. This bypasses TRAILERS and does not allow for trailers to be added like calling finish allows
+- TRAILERS (drain, error, close)
+    - Using chunked TE and called finish to stop writing body, writing trailers
+    - If all trailers written but end not called then emit *drain*
+    - When end called, finish writing trailers and emit *end*
+
+# http_message #
+- A data structure for storing parts of an HTTP message, namely the status line and header, body, and trailer buffers.
+- Because headers, body, and trailers may be of unbounded length, the http_message only provides buffers for these parts of the message.
+- For incoming messages, the buffers are filled as parts received. Once full, an event is emitted to process the buffer, and then the buffer is cleared to continue receiving the incoming message
+- For outgoing messages, the buffers are filled to capacity, after which errors are thrown. Once buffer is written out, an event is emitted for the rest of the outgoing message to be written.
+- The status line is a data structure consisting of method, url, version, and status code
+
+# Parser #
+- Consists of a Socket, an http_parser, and an http_message. The Socket is passed in on construction while the http_parser and http_message are allocated on construction, possibly from a preallocation pool.
+- Reads Socket and feeds received data into the http_parser
+- Parser registers callbacks with http_parser_settings which get invoked as message parsed to fill in http_message
+- A single external callback is registered with Parser to construct an IncomingMessage from a given http_message
+- As http_parser invokes Parser's header field and value callbacks, either the header or trailer buffer in http_message is filled, depending on whether parser had previously inoked :on_body:. As headers received and the buffer becomes full or headers finished, an IncomingMessage is constructed with the status line if not yet created, and :on_headers: invoked on IncomingMessage for it to drain the header buffer.
+- As http_parser invokes Parser's body callback, the body buffer is filled and when full or body finished, :on_body: invoked on IncomingMessage to drain the buffer and then continue receiving the body.
+- As trailers are received after the body is finished they are placed into the trailers buffer and when buffer filled or trailers finished, :on_trailers: invoked on IncomingMessage.
+- When message complete, :on_complete: invoked on IncomingMessage, and then http_parser and http_message deallocated (or returned to pool).
+- When constructing the IncomingMessage the status line is passed, while invoking :on_headers: and :on_body: the header or body buffers are passed
+
+# IncomingMessage #
+
+- :on_headers: called by Parser with a header buffer and flag indicating if more headers expected.
+- :on_trailers: called by Parser with a trailer buffer and flag indicating if more trailers expected.
+- :on_body: called by Parser with a body buffer and emits *body*
+- :on_complete: called by Parser when message complete and emits *end*
+- The Parser passes the status line on construction
+
+- HEADERS (*headers*, *end*, *error*, *close*)
+    - The Parser creates an IncomingMessage to handle received headers, body, and trailers, as such, this is the default state of a newly constructed IncomingMessage.
+    - *headers* emitted when :on_headers: called
+    - *end* emitted when :on_complete: called
+    - *error* emitted if :on_body: called and not expecting body or :on_complete: called and expecting body
+    - Move to BODY when :on_body: called
+- BODY (*data*, *error*, *close*)
+    - *data* emitted when :on_body: called
+    - *end* emitted when :on_complete: called
+    - *error* emitted when :on_complete: called and trailers expected or :on_trailers: called and no trailers expected
+    - Move to TRAILERS when :on_trailers: called
+- TRAILERS (*trailers*, *end*, *error*, *close*)
+    - *trailers* emitted when :on_trailers: called
+    - *end* emitted when :on_complete: called
+
+- *error* can be emitted when there is an error emitted by the underlying socket, a parser error, or some other error with the incoming message
+- *close* can be emitted when socket closed before *end* emitted
+
+- Provides read-only interface to access status line properties set on construction. No headers, body, or trailer stored.
+
+# OutgoingMessage #
+
+- Consists of an http_message for storing status line and buffering headers, body, and trailers.
+- Provides read/write interface for manipulating status line and buffering headers, body, and trailers.
+
+- :flush: called to start writing out headers (move to HEADERS)
+- :write: called to buffer body, start writing out headers if not yet flushed (move to HEADERS), or start writing out body once headers sent (move to BODY)
+- :finish: called to stop writing body and start writing out trailers (move to TRAILERS)
+- :end: called to start writing out headers if not yet flushed (move to HEADERS), start or finish finish writing out body (move to BODY), and start writing out trailers if necessary (move to TRAILERS)
+
+- HEADERS (*drain*, *end*, *error*, *close*)
+    - Can only enter this state if :flush:, :write:, or :end: called. May enter this state before socket connected and/or with headers, trailers, and body already set
+    - *drain* emitted if:
+        - all headers written out and body required but :write: not yet called
+        - body not required and message :finish: or :end: not yet called
+    - *end* emitted if no body required and :finish: or :end: called
+    - *error* emitted if no body required and :write: called or if body required and :finish: or :end: called.
+    - :flush: may be called multiple times
+    - Move to BODY when :write: called
+- BODY (*drain*, *end*, *error*, *close*)
+    - Cannot set additional headers, but trailers can be set
+    - *drain* emitted when write buffer empty but :end: not yet called
+    - *end* emitted when finished writing, :finish: or :end: called and no trailers set
+    - If finished writing, :finish: or :end: called, using chunked TE, and trailers set, move to TRAILERS
+- TRAILERS (*drain*, *end*, *error*, *close*)
+    - Can only enter this state if using chunked TE, trailers set, and :finish: or :end: called
+    - *drain* emitted if all trailers written but :end: not called
+    - *end* emitted if :end: called and all trailers written
+
+# ClientRequest : OutgoingMessage #
+
+- CONNECTING (*socket*, *connect*, *timeout*, *error*)
+    - Constructed ClientRequest, resolving domain then/or creating socket and opening connection (and emitting *socket*)
+    - ClientRequest can be used to set headers, write body then/or end request. 
+    - Headers won't be sent upon connection unless :write:, :flush:, :finish:, or :end: called before connected, in which case they will be rendered and buffered (along with body) and sent once connected. Once :finish:, or :end: called headers cannot be changed.
+    - Request body will be buffered up to a limit beyond which the user must wait for *drain* events on the ClientRequest to continue writing (Buffer could use low/high watermarks to emit *drain* before buffer empty).
+    - If socket connection timeout expires emit *timeout*
+    - Register *end* event handler on OutgoingMessage to move to WAITING
+    - Once connected emit *connect* and enter OutgoingMessage::HEADERS to start sending headers and continue on to OutgoingMessage::BODY and OutgoingMessage::TRAILERS as needed; *drain*, *end*, *error*, and *close* events will be emitted by OutgoingMessage
+    - Multiple requests may be issued at once. If persistent connections are used then they can be sent immediately and queued to receive responses. If non-persistent connections used they must be queued so they can start after the response to the last request is received or they may be sent using separate sockets.
+    - Parser is attached to a socket once its connected to read the response. Since HTTP is half-duplex the response headers should not start to be received until after the ClientRequest has ended. If they are received before the request has ended this is an indication of an error and an *error* event should be emitted on the ClientRequest
+- WAITING (*response*, *error*, *close*)
+    - At this point the request has finished being sent and we now must wait for the response to be received. Since the ClientResponse is only constructed after the Parser has received headers we must store the ClientRequest somewhere and associate it with the Socket or Parser so that *response* can be emitted on the ClientRequest to pass the ClientResponse to the user. Since multiple requests may be made to the same host (when using agents) a queue of ClientRequest is needed so that each response can be dispatched to the appropriate handler.
+    - When response headers received, ClientResponse created and *response* emitted on dequeued ClientRequest. The ClientRequest should be destroyed along with the ClientResponse when the user finishes handling the response
+
+# ClientResponse : IncomingMessage #
+
+- Constructed after Parser reads headers from a socket and has dequeued the corresponding ClientRequest. Passed in *response* event emitted on ClientRequest so users can attach IncomingMessage event handlers
+- Upon construction enters IncomingMessage::HEADERS and continues on to IncomingMessage::BODY and IncomingMessage::TRAILERS as response received.
+
+# Server #
+
+- LISTENING (listening, connection, request, error, close)
+    - Once listening socket opened *listening* emitted
+    - On each socket connection, *connection* emitted before reading socket
+    - Parser reads socket and once request headers received, ServerRequest and ServerResponse created and *request* emitted and connection ServerRequest moves to REQUEST
+
+# ServerRequest : IncomingMessage #
+
+- Constructed after Parser reads headers from a socket. Parser is attached to a socket created for a new connection or added to the persistent connection pool. Passed along with new ServerResponse in *request* event emitted on Server so users can attach IncomingMessage event handlers and start sending the response.
+- Upon construction enters IncomingMessage::HEADERS and continues on to IncomingMessage::BODY and IncomingMessage::TRAILERS as request received.
+
+ServerResponse : OutgoingMessage
+- Constructed and passed along with ServerRequest when *request* emitted after headers received. Will not start writing out even if :end: called until ServerRequest emits *end*, to ensure that response always comes after request complete.
+- WAITING
+    - ServerRequest has not yet emitted *end*
+    - Headers/trailers may be set and body written but won't start writing out until ServerRequest emits *end*. 
+    - When ServerRequest emits *end* enters OutgoingMessage::HEADERS and continues with OutgoingMessage::BODY and OutgoingMessage::TRAILERS
+    - When OutgoingMessage emits *end* enter FINISHED
+- FINISHED
+    - Cleanup after finished sending response
+    - If not persistent then close and destroy socket
+    - If persistent then return socket to active pool to await another request
+
+
+HTTP Persistent Connections
+- Client agent has pool of active sockets and associated request/response queues
+- When user makes request a socket is created/reused and a ClientRequest is
+put on request queue for delivery upon connection or after pending requests. 
+- When requests are delivered the ClientRequest is put on response queue and
+after each response is received a ClientResponse is created, the request is
+dequeued and the response emitted.
+- Socket close events will abort a current request and place it back on request
+queue, emit error events on all ClientRequests on the response queue, and if
+request queue is not empty, reconnect
+
 
 HTTP Parsing, Incoming/Outgoing Messages, and Client/Server Interface
 

@@ -7,14 +7,34 @@ namespace native { namespace http {
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[ServerRequest] " << msg)
 
-ServerRequest::ServerRequest(net::Socket* socket, detail::http_message* message)
-    : IncomingMessage(socket, message) // TODO: use move constructor
+ServerRequest::ServerRequest(net::Socket* socket, Parser* parser)
+: IncomingMessage(socket, parser) // TODO: use move constructor
+, server_(nullptr)
 {
   DBG("constructing");
+}
 
-  socket_->on<native::event::data>([this](const Buffer& buffer){ emit<native::event::data>(buffer); });
-  socket_->on<native::event::end>([this](){ emit<native::event::end>(); });
-  socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
+void ServerRequest::server(Server* server) {
+  server_ = server;
+}
+
+void ServerRequest::parser_on_headers_complete() {
+  CRUMB();
+  // TODO: Do early header processing and decide whether body should be received
+
+  // Emit request event so user can prepare for receiving body
+
+  // Create ServerResponse
+  ServerResponse* res = new ServerResponse(socket_);
+  assert(res);
+
+  res->on<native::event::http::finish>([=](){
+    DBG("response finished, ending socket");
+    socket_->end();
+  });
+
+  // Pass request and response to listener
+  server_->emit<native::event::http::server::request>(this, res);
 }
 
 /* ServerResponse *************************************************************/
@@ -33,7 +53,7 @@ ServerResponse::ServerResponse(net::Socket* socket)
 }
 
 void ServerResponse::_implicitHeader() {
-  this->writeHead(this->message_.status());
+  this->writeHead(this->start_line_.status());
 };
 
 void ServerResponse::writeContinue() {
@@ -60,10 +80,10 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
   headers_type headers = this->_renderHeaders();
 
   this->status(statusCode);
-  if (!given_headers.empty() && !this->message_.headers().empty()) {
+  if (!given_headers.empty() && !this->headers_.empty()) {
     // Slow-case: when progressive API and header fields are passed.
     headers.insert(given_headers.begin(), given_headers.end());
-  } else if (this->message_.headers().empty()) {
+  } else if (this->headers_.empty()) {
     // only writeHead() called
     headers = given_headers;
   }
@@ -124,12 +144,21 @@ void Server::on_connection(net::Socket* socket) {
     // The parser will start reading from the socket and parsing data
 
     // After receiving headers it will call this to create an IncomingMessage
-    parser->on_incoming([=](net::Socket* socket, detail::http_message* message) {
-      return this->on_incoming(parser, socket, message);
+    parser->register_on_incoming([=](net::Socket* socket, Parser* parser) {
+      return this->on_incoming(socket, parser);
     });
 
-    parser->on<event::error>([this](const Exception& e) {
+    parser->register_on_error([this](const Exception& e) {
+      CRUMB();
       emit<event::error>(e);
+    });
+    parser->register_on_close([this]() {
+      CRUMB();
+      emit<event::error>(Exception("Parser closed before ServerRequest constructed"));
+    });
+    parser->register_on_end([this]() {
+      CRUMB();
+      emit<event::error>(Exception("Parser end before ServerRequest constructed"));
     });
 }
 
@@ -194,28 +223,12 @@ void Server::on_connection(net::Socket* socket) {
  * Parser received headers, create ServerRequest for parser to emit body and
  * completion events on, and create ServerResponse and emit for users to write
  */
-IncomingMessage* Server::on_incoming(Parser* parser, net::Socket* socket, detail::http_message* message) {
+IncomingMessage* Server::on_incoming(net::Socket* socket, Parser* parser) {
   DBG("creating ServerRequest for Parser");
-  // Create ServerRequest from IncomingMessage
-  ServerRequest* req = new ServerRequest(socket, message);
-
+  // Create ServerRequest
+  ServerRequest* req = new ServerRequest(socket, parser);
   assert(req);
-
-  req->parser(parser);
-
-  // TODO: Do early header processing and decide whether body should be received
-
-  // Emit request event so user can prepare for receiving body
-
-  // Create ServerResponse
-  ServerResponse* res = new ServerResponse(socket);
-  assert(res);
-  res->on<native::event::http::finish>([=](){
-    DBG("response finished, ending socket");
-    res->socket_->end();
-  });
-  // Pass request and response to listener
-  emit<native::event::http::server::request>(req, res);
+  req->server(this);
 
   return req;
 }
