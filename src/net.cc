@@ -39,6 +39,13 @@ Socket::Socket(detail::stream* handle, Server* server, bool allowHalfOpen)
   init_socket(handle);
 }
 
+/**
+ *  @brief Socket destructor.
+ */
+Socket::~Socket() {
+  DBG("~Socket()");
+}
+
 bool Socket::end(const Buffer& buffer)
 {
   DBG("end");
@@ -112,6 +119,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 
   if(connecting_)
   {
+    DBG("queueing write");
     connect_queue_size_ += buffer.size();
     connect_queue_.push_back(std::make_pair(std::shared_ptr<Buffer>(new Buffer(buffer)), callback));
     return false;
@@ -321,6 +329,7 @@ int Socket::remotePort() const
 bool Socket::connect(const std::string& ip_or_path, int port, event::connect::callback_type callback)
 {
   DBG("connect");
+  DBG("this = " << this);
   // recreate socket handle if needed
   if(destroyed_ || !stream_)
   {
@@ -350,8 +359,8 @@ bool Socket::connect(const std::string& ip_or_path, int port, event::connect::ca
     auto rv = x->connect(ip_or_path, port);
     if(rv)
     {
-      stream_->on_complete([=](detail::resval r){
-        DBG("on_complete");
+      stream_->on_complete([this](detail::resval r){
+        DBG("on_complete: " << r.str());
         if(destroyed_) return;
 
         assert(connecting_);
@@ -359,11 +368,13 @@ bool Socket::connect(const std::string& ip_or_path, int port, event::connect::ca
 
         if(!r)
         {
+          CRUMB();
           connect_queue_cleanup();
           destroy(r);
         }
         else
         {
+          CRUMB();
           readable(stream_->is_readable());
           writable(stream_->is_writable());
 
@@ -371,8 +382,17 @@ bool Socket::connect(const std::string& ip_or_path, int port, event::connect::ca
 
           if(readable()) stream_->read_start();
 
-          emit<event::connect>();
-
+          process::nextTick([this](){
+            /*
+             * TODO: A connect listener may do Socket::write and call
+             * detail::stream::on_complete(), causing this closure to be
+             * destroyed. May be able to change detail::stream to have
+             * different callbacks for connect and write completion
+             */
+            emit<event::connect>();
+          });
+          DBG("this = " << this);
+          DBG("connect_queue_.size() = " << connect_queue_.size());
           if(connect_queue_.size())
           {
             for(connect_queue_type::value_type c : connect_queue_)

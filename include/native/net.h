@@ -115,8 +115,7 @@ protected:
   /**
    *  @brief Socket destructor.
    */
-  virtual ~Socket() {
-  }
+  virtual ~Socket();
 
 public:
   /**

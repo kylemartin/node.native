@@ -26,6 +26,7 @@ Stream::Stream(detail::stream* stream, bool readable, bool writable) :
 }
 
 Stream::~Stream() {
+  DBG("~Stream()");
 }
 
 bool Stream::readable() const {
