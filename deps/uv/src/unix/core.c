@@ -262,6 +262,11 @@ static void uv__poll(uv_loop_t* loop) {
 
 
 static int uv__run(uv_loop_t* loop) {
+#ifdef DEBUG
+  fprintf(stderr, "########################################\n"
+                  "#         ITERATING EVENT LOOP         #\n"
+                  "########################################\n");
+#endif
   uv_update_time(loop);
   uv__run_timers(loop);
   uv__run_idle(loop);

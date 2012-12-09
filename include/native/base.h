@@ -16,7 +16,7 @@
 
 #if defined(DEBUG)
 
-#define DEBUG_PRINT(msg) do { std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl; } while(0);
+#define DEBUG_PRINT(msg) do { std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl << std::flush;  } while(0);
 #define DBG(msg) DEBUG_PRINT(msg)
 #define CRUMB() DBG(__FUNCTION__)
 #define TRACE(exp) DBG(#exp) exp;

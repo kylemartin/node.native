@@ -107,7 +107,7 @@ bool Socket::write(const std::string& str, const std::string& encoding, int fd) 
 // callback is invoked after all data is written.
 bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 {
-  DBG("write");
+  DBG("write:" << std::endl << buffer.str());
   bytes_written_ += buffer.size();
 
   if(connecting_)

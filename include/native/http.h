@@ -469,7 +469,7 @@ namespace native
 
       void _deferToConnect(std::function<void()> callback);
 
-      void init_socket();
+      void init_socket(net::Socket* socket);
 
       void on_incoming_message(IncomingMessage* msg);
 

@@ -8,7 +8,7 @@ namespace http {
 #define DBG(msg) DEBUG_PRINT("[ClientResponse] " << msg)
 ClientResponse::ClientResponse(net::Socket* socket, Parser* parser) :
     IncomingMessage(socket, parser) {
-  CRUMB();
+  DBG("constructing");
 }
 
 /* Client Request *************************************************************/
@@ -16,7 +16,7 @@ ClientResponse::ClientResponse(net::Socket* socket, Parser* parser) :
 #define DBG(msg) DEBUG_PRINT("[ClientRequest] " << msg)
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
-    OutgoingMessage(net::createSocket()), method_(HTTP_GET), headers_(),
+    OutgoingMessage(nullptr), method_(HTTP_GET), headers_(),
     path_(url.path_query_fragment()) {
   DBG("constructing");
   registerEvent<native::event::http::socket>();
@@ -35,6 +35,8 @@ ClientRequest::ClientRequest(detail::url_obj url,
     once<native::event::http::client::response>(callback);
   }
 
+  net::Socket* socket = net::createSocket();
+
   // TODO: set headers
   // TODO: set default host header
   // TODO: set authorization header if requested
@@ -45,9 +47,10 @@ ClientRequest::ClientRequest(detail::url_obj url,
   // TODO: utilize user agent if provided
   // TODO: utilize user connection method if provided
   // Connect socket
-  socket_->connect(host, port);
+  assert(socket);
+  socket->connect(host, port);
   // Setup socket
-  init_socket();
+  init_socket(socket);
 
   _deferToConnect([this]() {
     DBG("deferred flush");
@@ -117,16 +120,27 @@ void ClientRequest::_deferToConnect(std::function<void()> callback) {
 //js:      onSocket();
 //js:    }
 
-  if (!this->socket_->connected()) {
-  // if not yet connected setup connect event handler
-    this->socket_->once<event::connect>(callback);
-  } else {
-  // otherwise already connected so run callback
-    callback();
+  if (callback) {
+    auto handle_on_socket = [=](net::Socket* socket){
+      if (!socket->connected()) {
+        // if not yet connected setup connect event handler
+        socket->once<native::event::connect>(callback);
+      } else {
+        // otherwise already connected so run callback
+        callback();
+      }
+    };
+
+    if (!this->socket_) {
+      // if socket not yet available
+      once<native::event::http::socket>(handle_on_socket);
+    } else {
+      handle_on_socket(this->socket_);
+    }
   }
 }
 
-void ClientRequest::init_socket() {
+void ClientRequest::init_socket(net::Socket* socket) {
 //js:  ClientRequest.prototype.onSocket = function(socket) {
 //js:    var req = this;
 //js:
@@ -162,48 +176,49 @@ void ClientRequest::init_socket() {
 //js:    });
 //js:
 //js:  };
-  process::nextTick([this]() {
+  process::nextTick([=]() {
     DBG("initializing socket");
+    socket_ = socket;
     // TODO: check if allocated Parser is leaking
-      Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
+    Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
 
     // The parser will start reading from the socket and parsing data
 
     // TODO: set parser max. headers
     // TODO: Setup drain event
     // TODO: remove drain before setting it
-      socket_->on<native::event::connect>([this]() {
-            this->on_socket_connect();
-          });
-      socket_->on<native::event::drain>([this]() {
-            this->on_socket_drain();
-          });
-      socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
-            this->on_socket_error(e);
-          });
-      socket_->on<native::event::data>([this](const Buffer& buf) {
-            this->on_socket_data(buf);
-          });
-      socket_->on<native::event::end>([this]() {
-            this->on_socket_end();
-          });
-      socket_close_listener_ = socket_->on<native::event::close>([this]() {
-            this->on_socket_close();
-          });
+    socket_->on<native::event::connect>([this]() {
+          this->on_socket_connect();
+        });
+    socket_->on<native::event::drain>([this]() {
+          this->on_socket_drain();
+        });
+    socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
+          this->on_socket_error(e);
+        });
+    socket_->on<native::event::data>([this](const Buffer& buf) {
+          this->on_socket_data(buf);
+        });
+    socket_->on<native::event::end>([this]() {
+          this->on_socket_end();
+        });
+    socket_close_listener_ = socket_->on<native::event::close>([this]() {
+          this->on_socket_close();
+        });
 
-      // set on incoming callback on parser
-      parser->register_on_incoming([=](net::Socket* socket,
-          Parser* parser) {
-            DBG("constructing ClientResponse for parser");
-            IncomingMessage* result = new ClientResponse(socket, parser);
-            this->on_incoming_message(result);
-            return result;
+    // set on incoming callback on parser
+    parser->register_on_incoming([=](net::Socket* socket,
+        Parser* parser) {
+          DBG("constructing ClientResponse for parser");
+          IncomingMessage* result = new ClientResponse(socket, parser);
+          this->on_incoming_message(result);
+          return result;
 
-          });
+        });
 
-      // Emit socket event
-      emit<native::event::http::socket>(socket_);
-    });
+    // Emit socket event
+    emit<native::event::http::socket>(socket_);
+  });
 }
 
 void ClientRequest::on_incoming_message(IncomingMessage* msg) {
@@ -310,6 +325,7 @@ void ClientRequest::on_response_end() {
 void ClientRequest::on_socket_connect() {
   CRUMB();
   assert(socket_);
+  emit<native::event::connect>();
 }
 
 void ClientRequest::on_socket_drain() {

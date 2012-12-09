@@ -492,11 +492,6 @@ void OutgoingMessage::_flush() {
     ret = this->socket_->write(*it);
 //js:  }
   }
-  if (this->finished_) {
-    this->_finish();
-  } else if (ret) {
-    this->emit<event::drain>();
-  }
 //js:
 //js:  if (this.finished) {
 //js:    // This is a queue to the server or client to bring in the next this.
@@ -505,6 +500,11 @@ void OutgoingMessage::_flush() {
 //js:    // This is necessary to prevent https from breaking
 //js:    this.emit('drain');
 //js:  }
+  if (this->finished_) {
+    this->_finish();
+  } else if (ret) {
+    this->emit<event::drain>();
+  }
 }
 
 // TODO: handle encoding
@@ -562,7 +562,6 @@ void OutgoingMessage::_writeRaw(const Buffer& buf) {
       // TODO: handle output buffering
 //js:    // Directly write to socket.
 //js:    return this.connection.write(data, encoding);
-    DBG("Writing:" << std::endl << buf.str());
     this->socket_->write(buf);
 //js:  } else {
   } else {

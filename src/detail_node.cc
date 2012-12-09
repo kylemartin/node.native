@@ -1,4 +1,5 @@
 
+#include "native/base.h"
 #include "native/detail/node.h"
 
 namespace native
@@ -65,6 +66,7 @@ namespace native
 
             void node::tick()
             {
+              CRUMB();
                 if(!need_tick_) return;
                 need_tick_ = false;
 
