@@ -167,7 +167,6 @@ uv_buf_t stream::on_alloc(uv_handle_t* h, size_t suggested_size) {
 
   return uv_buf_t { new char[suggested_size], suggested_size };
 }
-;
 
 void stream::after_read_(uv_stream_t* handle, ssize_t nread, uv_buf_t buf,
     uv_handle_type pending) {

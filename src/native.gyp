@@ -27,7 +27,7 @@
       ],
       
       'dependencies': [
-        '../deps/uv/uv.gyp:uv',
+        '../deps/uv/uv.gyp:libuv',
         '../deps/http-parser/http_parser.gyp:http_parser',
       ],
 
@@ -45,7 +45,7 @@
       },
 
       'export_dependent_settings': [
-        '../deps/uv/uv.gyp:uv',
+        '../deps/uv/uv.gyp:libuv',
         '../deps/http-parser/http_parser.gyp:http_parser',
       ],
     }
