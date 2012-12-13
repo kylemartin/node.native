@@ -29,23 +29,27 @@ struct resize: public util::callback_def<> {};
 namespace tty {
 
 class ReadStream : public native::net::Socket {
-	bool isRaw() { return false; }
-	void setRawMode(bool mode) {}
+public:
+  ReadStream(uv_file file);
+	bool isRaw();
+	void setRawMode(bool mode);
+private:
+	detail::tty tty_;
 };
 
 class WriteStream : public native::net::Socket {
-	WriteStream(uv_file file) {
-		registerEvent<event::resize>();
-	}
-	int columns() { return 0; }
-	int rows() { return 0; }
+public:
+	WriteStream(uv_file file);
+	void refreshSize();
+	int columns() const;
+	int rows() const;
 private:
+	detail::tty tty_;
+	int columns_;
+	int rows_;
 };
 
-inline bool isatty(uv_file file) {
-	return UV_TTY == uv_guess_handle(file);
-}
-
+bool isatty(uv_file file);
 
 }  // namespace tty
 
