@@ -22,11 +22,6 @@ process.on('uncaughtException', function(err) {
 	process.exit(-1);
 });
 
-child = common.runTest(process.argv[2],process.argv.slice(3));
-
-console.log("Running test: " + process.argv.slice(2).join(" "));
-
-
 var responses_recvd = 0;
 var body0 = '';
 var body1 = '';
@@ -57,6 +52,10 @@ server.on('connect', function() {
 
 server.listen(common.PORT, function() {
 	console.log('Server listening on ' + common.PORT);
+
+	child = common.runTest(process.argv[2],process.argv.slice(3));
+
+	console.log("Running test: " + process.argv.slice(2).join(" "));
 });
 
 timeout = setTimeout(function(){
