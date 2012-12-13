@@ -7,7 +7,7 @@ using namespace native;
 
 TEST(Server) {
   int responses_sent = 0;
-  run([&responses_sent]() {
+  process::run([&responses_sent]() {
     http::Server* server = http::createServer();
 
     server->on<native::event::http::server::request>([=, &responses_sent](http::ServerRequest* req, http::ServerResponse* res){

@@ -9,8 +9,8 @@
 #include "detail/pipe.h"
 #include "detail/stream.h"
 #include "detail/tcp.h"
-#include "detail/node.h"
-#include "detail/tty.h"
+//#include "detail/tty.h"
+#include "detail/signal.h"
 #include "detail/buffers.h"
 
 #endif

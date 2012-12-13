@@ -11,7 +11,7 @@
 using namespace native;
 
 int main(int argc, char* argv[]) {
-	return run([=](){
+	return process::run([=](){
 		std::shared_ptr<TimeoutHandler> timeout1 = setTimeout([=](){
 			std::cout << "timeout1!" << std::endl;
 		}, 1000);

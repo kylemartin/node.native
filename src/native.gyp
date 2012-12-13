@@ -9,12 +9,13 @@
 
       'sources': [
         'native.cc',
+        'process.cc',
         'timers.cc',
         'net.cc',
         'stream.cc',
         'buffers.cc',
         'detail_handle.cc',
-        'detail_node.cc',
+        'detail_signal.cc',
         'detail_pipe.cc',
         'detail_stream.cc',
         'detail_tcp.cc',

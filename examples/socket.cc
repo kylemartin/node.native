@@ -9,7 +9,7 @@
 using namespace native;
 
 int main(int argc, char** argv) {
-	return run([=](){
+	return process::run([=](){
 		net::createSocket([](net::Socket* socket){
 			socket->on<event::drain>([](){
 				std::cout << "drain" << std::endl;

@@ -11,25 +11,11 @@
 
 #include "native/base.h"
 #include "native/detail.h"
+#include "native/process.h"
 #include "native/timers.h"
 #include "native/net.h"
 #include "native/http.h"
-#include "native/tty.h"
+//#include "native/tty.h"
 //#include "native/readline.h"
-
-/**
- *  All types of node.native are defined under native namespace.
- */
-namespace native
-{
-    /**
-     *  Starts the main loop with the callback.
-     *
-     *  @param callback     Callback object that is executed by node.native.
-     *
-     *  @return             This function always returns 0.
-     */
-    int run(std::function<void()> callback);
-}
 
 #endif

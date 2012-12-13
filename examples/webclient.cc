@@ -9,7 +9,7 @@
 using namespace native;
 
 int main(int argc, char** argv) {
-    return run([=]() {
+    return process::run([=]() {
     	http::ClientRequest* req = http::request("http://127.0.0.1:1337/");
 
     	/**

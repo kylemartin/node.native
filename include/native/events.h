@@ -402,7 +402,6 @@ namespace native
             return events_.erase(typeid(E).hash_code()) > 0;
         }
 
-    private:
         //std::map<int, std::shared_ptr<detail::sigslot_base>> events_;
         std::map<int, detail::event_emitter> events_;
     };

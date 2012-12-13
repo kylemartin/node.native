@@ -6,7 +6,7 @@
 using namespace native;
 
 TEST(Client) {
-  run([]() {
+  process::run([]() {
 
     http::ClientRequest* req =
         http::get("http://127.0.0.1:" COMMON_PORT_STRING "/foo?bar");

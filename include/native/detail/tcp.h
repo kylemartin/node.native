@@ -11,15 +11,7 @@ namespace native
         class tcp : public stream
         {
         public:
-            tcp()
-                : stream(reinterpret_cast<uv_stream_t*>(&tcp_))
-                , tcp_()
-            {
-                int r = uv_tcp_init(uv_default_loop(), &tcp_);
-                assert(r == 0);
-
-                tcp_.data = this;
-            }
+            tcp();
 
         private:
             virtual ~tcp()

@@ -24,10 +24,9 @@ namespace native {
     timers::map_type timers::map_;
 
 
-  timer::~timer() { std::cerr << "~timer()" << std::endl; };
+  timer::~timer() { };
 
   void timer::handle_timeout_(uv_timer_t* handle, int status) {
-    std::cerr << "timer::handle_timeout_" << std::endl;
     timer* self = static_cast<timer*>(handle->data);
     assert(self != nullptr);
     if (self->list_.empty()) { // No enrolled TimeoutHandler
@@ -39,7 +38,7 @@ namespace native {
       // Get current time
       int64_t now = get_time_milliseconds();
 
-      std::cerr << "number of timeouts: " << self->list_.size() << std::endl;
+      DBG("number of timeouts: " << self->list_.size());
       while (!self->list_.empty()) {
         std::shared_ptr<TimeoutHandler> first = self->list_.front();
         unsigned int diff = now - first->idleStart_;
@@ -65,7 +64,7 @@ namespace native {
   }
 
   detail::resval timer::start(int64_t timeout, int64_t repeat) {
-    std::cerr << "timer::start(" << timeout << ", " << repeat << ")" << std::endl;
+    DBG("timer::start(" << timeout << ", " << repeat << ")");
     timeout_ = timeout;
     return detail::run_(uv_timer_start, &timer_, handle_timeout_, timeout, repeat);
   }
@@ -115,10 +114,10 @@ namespace native {
 
     // Set start time for TimeoutHandler
     item->idleStart_ = get_time_milliseconds();
-    std::cerr << "start: " << item->idleStart_ << std::endl;
+    DBG("start: " << item->idleStart_);
     // Append TimeoutHandler to timer list
     t->list_.push_back(item);
-    std::cerr << "timers::activate(" << item->idleTimeout_ << "," << item->idleStart_ << ")" << std::endl;
+    DBG("timers::activate(" << item->idleTimeout_ << "," << item->idleStart_ << ")");
   }
 
   void timers::enroll(std::shared_ptr<TimeoutHandler> item, unsigned int msecs) {

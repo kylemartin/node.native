@@ -9,7 +9,7 @@
 using namespace native;
 
 int main(int argc, char* argv[]) {
-	return run([=]() {
+	return process::run([=]() {
 		std::cerr << "running!" << std::endl;
 	});
 }

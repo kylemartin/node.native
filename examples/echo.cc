@@ -2,7 +2,7 @@
 using namespace native;
 
 int main(int argc, char** argv) {
-    return run([=]() {
+    return process::run([=]() {
         net::createServer([](net::Server* server){
             server->on<event::connection>([](net::Socket* socket){
                 socket->pipe(socket);

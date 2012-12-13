@@ -41,6 +41,12 @@
       'type': 'executable',
       'sources': [ 'webserver.cc' ],
       'dependencies': [ '../src/native.gyp:native' ]
+    },
+    {
+      'target_name': 'signals',
+      'type': 'executable',
+      'sources': [ 'signals.cc' ],
+      'dependencies': [ '../src/native.gyp:native' ]
     }
   ] # end targets
 }

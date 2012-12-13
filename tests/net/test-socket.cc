@@ -7,7 +7,7 @@ using namespace native;
 
 TEST(Socket) {
 	int clientConnected = 0;
-	run([&](){
+	process::run([&](){
 		auto cb = [&](net::Socket* socket){
 			socket->connect("127.0.0.1", COMMON_PORT, [&](){
 				std::cout << "client connected" << std::endl;
