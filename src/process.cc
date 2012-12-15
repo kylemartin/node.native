@@ -1,14 +1,18 @@
-#include "native.h"
+#include "native/process.h"
+#include "native/tty.h"
 
 namespace native {
 
   process::process()
-      : start_time_()
-      , check_()
-      , prepare_()
-      , idle_()
-      , need_tick_(false)
-      , tick_callbacks_()
+  : start_time_()
+  , check_()
+  , prepare_()
+  , idle_()
+  , need_tick_(false)
+  , tick_callbacks_()
+  , stdin_()
+  , stdout_()
+  , stderr_()
   {
   }
 
@@ -83,15 +87,15 @@ namespace native {
       // Prepare stdio streams
       prepareStdio();
   }
-
+#define ENABLE_TTY
 #ifdef ENABLE_TTY
   Stream* createWritableStdioStream(uv_file file) {
     Stream* stream = nullptr;
 
     switch (tty::guessHandleType(file)) {
     case UV_TTY: {
-      stream = tty::WriteStream(file);
-      stream->stream_->unref();
+      stream = new tty::WriteStream(file);
+      stream->detail()->unref();
     } break;
 
     case UV_FILE: {
@@ -111,23 +115,24 @@ namespace native {
       break;
     }
 
-    stream->is_stdio_ = true;
     return stream;
   }
 #endif
   void process::prepareStdio() {
 #ifdef ENABLE_TTY
     Stream* stdout_ = createWritableStdioStream(1);
-    if (tty::isatty(1)) {
-      on<signal_event<SIGWINCH>>([](int signo){ static_cast<tty::WriteStream>(stdout_)->refreshSize(); });
+    if (tty::isatty(stdout_)) {
+      on<signal_event<SIGWINCH>>([=](int signo){
+        reinterpret_cast<tty::WriteStream*>(stdout_)->refreshSize();
+      });
     }
     Stream* stderr_ = createWritableStdioStream(2);
 
     Stream* stdin_ = nullptr;
-    switch (tty::guessHandleType(file)) {
+    switch (tty::guessHandleType(0)) {
     case UV_TTY: {
-      stdin_ = tty::ReadStream(file);
-      stdin_->stream_->unref();
+      stdin_ = new tty::ReadStream(0);
+      stdin_->detail()->unref();
     } break;
 
     case UV_FILE: {
@@ -146,7 +151,6 @@ namespace native {
       assert(false);
       break;
     }
-    stdin_->is_stdio_ = true;
 #endif
   }
 

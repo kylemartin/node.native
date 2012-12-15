@@ -42,6 +42,8 @@ namespace native
         virtual void destroy() = 0;
         virtual void destroySoon() = 0;
 
+        uv_handle_type type() const;
+        detail::stream* detail() const;
     protected:
         void writable(bool b);
         void readable(bool b);

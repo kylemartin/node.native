@@ -16,7 +16,7 @@ namespace detail {
 
 class tty : public stream {
 public:
-	tty(uv_file file, int readable);
+	tty(uv_file file, bool readable);
 
 	int enable_raw();
 

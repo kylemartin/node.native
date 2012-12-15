@@ -10,6 +10,8 @@ namespace native
     class process : public EventEmitter
     {
     public:
+        static process& instance();
+
         static void nextTick(std::function<void()> callback);
 
         /**
@@ -30,12 +32,14 @@ namespace native
         virtual ~process() {}
 
     public:
-        static process& instance();
 
         int start(std::function<void()> logic);
 
         void add_tick_callback(std::function<void()> callback);
 
+        Stream* stdin() { return stdin_; }
+        Stream* stdout() { return stdout_; }
+        Stream* stderr() { return stderr_; }
     private:
         void init();
 
@@ -51,6 +55,10 @@ namespace native
         uv_idle_t idle_;
         bool need_tick_;
         std::list<std::function<void()>> tick_callbacks_;
+
+        Stream* stdin_;
+        Stream* stdout_;
+        Stream* stderr_;
 
         void prepareStdio();
 

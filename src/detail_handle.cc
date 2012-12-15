@@ -58,5 +58,9 @@ const uv_handle_t* handle::uv_handle() const {
   return handle_;
 }
 
+uv_handle_type handle::type() const {
+  assert(handle_);
+  return handle_->type;
+}
 }
 }

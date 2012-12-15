@@ -135,6 +135,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 
     if(!r)
     {
+      //TODO: callback with error on write error
       destroy(r);
       return;
     }

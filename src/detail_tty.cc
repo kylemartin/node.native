@@ -1,12 +1,13 @@
 
 #include "native/detail/base.h"
 #include "native/detail/stream.h"
+#include "native/detail/tty.h"
 
 namespace native {
 
 namespace detail {
 
-  tty::tty(uv_file file, int readable)
+  tty::tty(uv_file file, bool readable)
         : stream(reinterpret_cast<uv_stream_t*>(&tty_))
         ,  tty_(), orig_termios_fd_(), orig_termios_()
     {

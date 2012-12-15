@@ -1,11 +1,11 @@
 {
   'targets': [
-    # {
-    #   'target_name': 'shell',
-    #   'type': 'executable',
-    #   'sources': [ 'shell.cc' ],
-    #   'dependencies': [ '../src/native.gyp:native' ],
-    # },
+    {
+      'target_name': 'repl',
+      'type': 'executable',
+      'sources': [ 'repl.cc' ],
+      'dependencies': [ '../src/native.gyp:native' ],
+    },
     # {
     #   'target_name': 'tty',
     #   'type': 'executable',

@@ -15,7 +15,8 @@
 #include "native/timers.h"
 #include "native/net.h"
 #include "native/http.h"
-//#include "native/tty.h"
-//#include "native/readline.h"
+#include "native/tty.h"
+#include "native/readline.h"
+#include "native/shell.h"
 
 #endif

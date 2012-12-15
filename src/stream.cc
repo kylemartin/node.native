@@ -56,6 +56,14 @@ Stream* Stream::pipe(Stream* destination) {
   return pipe(destination, util::dict());
 }
 
+uv_handle_type Stream::type() const {
+  assert(stream_);
+  return stream_->type();
+}
+
+detail::stream* Stream::detail() const {
+  return stream_;
+}
 void Stream::writable(bool b) {
   writable_ = b;
 }

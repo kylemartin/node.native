@@ -9,6 +9,7 @@
 #define __NATIVE__TTY_H__
 
 #include "net.h"
+#include "detail/tty.h"
 
 namespace native {
 
@@ -33,6 +34,7 @@ public:
   ReadStream(uv_file file);
 	bool isRaw();
 	void setRawMode(bool mode);
+	void destroy();
 private:
 	detail::tty tty_;
 };
@@ -50,6 +52,9 @@ private:
 };
 
 bool isatty(uv_file file);
+bool isatty(Stream* stream);
+
+uv_handle_type guessHandleType(uv_file file);
 
 }  // namespace tty
 

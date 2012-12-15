@@ -27,6 +27,7 @@ public:
   uv_handle_t* uv_handle();
   const uv_handle_t* uv_handle() const;
 
+  uv_handle_type type() const;
 private:
   uv_handle_t* handle_;
   bool unref_;
