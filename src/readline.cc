@@ -12,7 +12,7 @@ namespace native
 			, rl_callback(), line_buf(), line_pos(0)
 			, history(), history_index(0)
 		{
-			history.push_back(line_buf);
+      history.push_back("");
 		}
 
     readline* readline::create() {
@@ -90,10 +90,8 @@ namespace native
 			// read input
       ttyi->resume();
 
+      // TODO: handle read errors
 			ttyi->on<event::data>([=](const Buffer& buffer){
-
-// TODO: display write errors
-//				if (!e) {
 					int width = ttyo->columns();
 //					int height = ttyo->rows();
 
@@ -108,38 +106,36 @@ namespace native
 
 						switch (c) {
 						case 13: /* enter */
-//							write('\n', [=](native::detail::resval e){ if (e) handle_line(e, ""); });
-              write('\n', [=](){ (); });
+						  // TODO handle write error
+              write('\n', [=](){});
 							handle_line(native::detail::resval(), line_buf);
 							line_buf.clear();
 							line_pos = 0;
 							history_index = 0;
 							write_prompt();
 							break;
-						case 3: /* ctrl-c */
-							handle_line(native::detail::resval(UV_EOF), "");
+						case 3: /* ctrl-c: cancel current line */
+						  if (line_buf.size() > 0) {
+						    line_buf.clear();
+						    line_pos = 0;
+						    history_index = 0;
+              }
+              write('\n', [=](){});
+						  write_prompt();
 							break;
 						case 127: 	/* backspace */
-						case 8:		/* ctrl-h */
+						case 8:		  /* ctrl-h */
 							if (line_pos > 0 && line_buf.size() > 0) {
 								line_buf.erase(line_pos-1,1);
 								line_pos--;
 								refresh_line();
 							}
 							break;
-						case 4:     /* ctrl-d */
-							exit(0);
-	//					        	/* remove char at right of cursor */
-	//					            if (line_buf.size() > 1 && line_pos < (line_buf.size())) {
-	//					                line_buf.erase(line_pos, 1);
-	//					                refresh_line();
-	//					            } else if (line_buf.size() == 0) {
-	////					                history_len--;
-	////					                free(history[history_len]);
-	////					                return -1;
-	//					            }
+						case 4:     /* ctrl-d: end of file */
+              write('\n', [=](){});
+              handle_line(native::detail::resval(UV_EOF), "");
 							break;
-						case 20:    /* ctrl-t */
+						case 20:    /* ctrl-t: transpose characters */
 							if (line_pos > 0 && line_pos < line_buf.size()) {
 								int aux = line_buf[line_pos-1];
 								line_buf[line_pos-1] = line_buf[line_pos];
@@ -148,12 +144,36 @@ namespace native
 								refresh_line();
 							}
 							break;
+
+
+            case 21: /* Ctrl+u, delete the whole line. */
+              line_buf.clear();
+              line_pos = 0;
+              refresh_line();
+              break;
+            case 11: /* Ctrl+k, delete from current to end of line. */
+              line_buf.erase(line_pos);
+              refresh_line();
+              break;
+            case 1: /* Ctrl+a, go to the start of the line */
+              line_pos = 0;
+              refresh_line();
+              break;
+            case 5: /* ctrl+e, go to the end of the line */
+              line_pos = line_buf.size();
+              refresh_line();
+              break;
+            case 12: /* ctrl+l, clear screen */
+              clear_screen();
+              refresh_line();
+              break;
+
 						case 2:     /* ctrl-b */
 							goto left_arrow;
 						case 6:     /* ctrl-f */
 							goto right_arrow;
 						case 16: /* ctrl-p */
-							seq[1] = 66;
+							seq[1] = 65;
 							goto up_down_arrow;
 						case 14: /* ctrl-n */
 							seq[1] = 66;
@@ -185,11 +205,14 @@ namespace native
 								if (history.size() > 1) {
 									history[history.size()-1 - history_index] = line_buf;
 
-									history_index += (seq[1] == 65) ? 1 : -1;
-									if (history_index >= history.size()) {
-										history_index = history.size()-1;
-										break;
-									}
+									if (seq[1] == 65) {
+									  if (history_index >= history.size()-1) break;
+									  history_index += 1;
+ 									} else {
+									  if (history_index <= 0) break;
+									  history_index -= 1;
+ 									}
+
 									line_buf = history[history.size()-1 - history_index];
 									line_pos = line_buf.size();
 									refresh_line();
@@ -219,7 +242,8 @@ namespace native
 								if (line_pos + prompt.size() < (unsigned int) width) {
 									// avoid line refresh when space available
 //                  write(c, [=](native::detail::resval e) {if (e) handle_line(e, "");});
-									write(c, [=]() { (); });
+								  // TODO: handle write error
+									write(c, [=]() {});
 								}
 								else {
 									refresh_line();
@@ -231,33 +255,8 @@ namespace native
 								refresh_line();
 							}
 							break;
-						case 21: /* Ctrl+u, delete the whole line. */
-							line_buf.clear();
-							line_pos = 0;
-							refresh_line();
-							break;
-						case 11: /* Ctrl+k, delete from current to end of line. */
-							line_buf.erase(line_pos);
-							refresh_line();
-							break;
-						case 1: /* Ctrl+a, go to the start of the line */
-							line_pos = 0;
-							refresh_line();
-							break;
-						case 5: /* ctrl+e, go to the end of the line */
-							line_pos = line_buf.size();
-							refresh_line();
-							break;
-						case 12: /* ctrl+l, clear screen */
-							clear_screen();
-							refresh_line();
-							break;
 						}
 					}
-//				}
-//				else {
-//					handle_line(e, "");
-//				}
 			});
 
 		}
@@ -266,14 +265,18 @@ namespace native
 
 			// TODO: handle overflow at maximum history
 			if (line.size() > 0) {
-				history.back() = line;
+			  history.back() = line;
 				history.push_back("");
 			}
 		}
 
+		std::string readline::get_prompt() {
+		  return std::to_string(history.size()) + ":" + std::to_string(history_index) + prompt;
+		}
+
 		void readline::write_prompt() {
 
-			write(prompt, []() {
+			write(get_prompt(), []() {
 
 				// TODO: handle error
 			});
@@ -284,7 +287,8 @@ namespace native
 			int width = ttyo->columns();
 //			int height = ttyo->rows();
 
-			size_t plen = prompt.size();
+      std::string p = get_prompt();
+			size_t plen = p.size();
 			size_t len = line_buf.size();
 			size_t bpos = 0;
 			size_t lpos = line_pos;
@@ -301,12 +305,12 @@ namespace native
 	//				std::cerr << "bpos: " << bpos << " plen: " << " len: " << len << " lpos: " << lpos << std::endl;
 			std::stringstream ss;
 
-			ss << "\x1b[0G"						// move cursor to left
-			   << prompt 						// write prompt
-			   << line_buf.substr(bpos, len) 	// write current line
-			   << "\x1b[0K"						// erase to right
-			   << "\x1b[0G\x1b[" 				// move cursor
-			   << lpos+plen << "C";				// to original position
+      ss << "\x1b[0G"   						      // move cursor to left by size of prompt
+			   << p             				        // write prompt
+			   << line_buf.substr(bpos, len) 	  // write current line
+			   << "\x1b[0K"						          // erase to end of line
+			   << "\x1b[0G\x1b[" 				        // move cursor
+			   << lpos+plen << "C";				      // to original position
 
 //		   write (ss.str(), [=](native::detail::resval e){});
        write (ss.str(), [=](){});

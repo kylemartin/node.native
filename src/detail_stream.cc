@@ -92,7 +92,6 @@ resval stream::write(const char* data, int offset, int length,
       self->on_complete_(status?get_last_error():resval());
       if (req) delete req;
     }) == 0;
-    DBG(res);
   }
 
   if (!res)

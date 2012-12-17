@@ -113,7 +113,6 @@ bool Socket::write(const std::string& str, const std::string& encoding, int fd) 
 // callback is invoked after all data is written.
 bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 {
-  DBG("write:" << std::endl << buffer.str());
   bytes_written_ += buffer.size();
 
   if(connecting_)
@@ -129,7 +128,6 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
   if(!stream_) throw Exception("This socket is closed.");
 
   stream_->on_complete([=](detail::resval r) {
-    DBG("on complete");
     if(destroyed_) return;
 
     if(!r)
@@ -200,7 +198,6 @@ void Socket::pause()
 
 void Socket::resume()
 {
-  DBG("resume");
   if(stream_)
   {
     stream_->read_start();
@@ -438,7 +435,6 @@ void Socket::init_socket(detail::stream* stream)
   {
     // set on_read callback
     stream_->on_read([&](const char* buffer, std::size_t offset, std::size_t length, detail::stream* pending, detail::resval r){
-      DBG("on_read");
       on_read(buffer, offset, length, r);
     });
 
@@ -504,7 +500,6 @@ void Socket::connect_queue_cleanup()
 
 void Socket::on_read(const char* buffer, std::size_t offset, std::size_t length, detail::resval rv)
 {
-  DBG("on read");
   timers::active(timeout_emitter_);
 
   std::size_t end_pos = offset + length;

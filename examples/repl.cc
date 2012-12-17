@@ -46,13 +46,15 @@ int main(int argc, char* argv[]) {
 ////	ttyout_fd = open("/dev/tty", O_WRONLY, 0);
 //#endif
 
-	shell* s =  shell::create();
+  process::run([](){
+    shell* s =  shell::create();
 
-	s->add_command("test", [=](const std::vector<std::string>& args){
-		std::cout << "num args: " << args.size() << std::endl;
-	});
+    s->add_command("test", [=](const std::vector<std::string>& args){
+      std::cout << "num args: " << args.size() << std::endl;
+    });
 
-  s->run([](const native::Exception& e) {
-    std::cerr << "shell terminated with error: " << e.message() << std::endl;
+    s->run([](const native::Exception& e) {
+      std::cerr << "shell terminated with error: " << e.message() << std::endl;
+    });
   });
 }

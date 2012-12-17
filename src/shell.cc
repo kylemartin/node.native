@@ -15,8 +15,11 @@ namespace native {
 
 shell* shell::create() {
   // TODO: handle platform specific initialization
-  if (native::tty::isatty(0)) {
-    return new shell(new native::tty::ReadStream(0), new native::tty::WriteStream(1));
+  if (native::tty::isatty(process::instance().stdout())) {
+    return new shell(
+        reinterpret_cast<tty::ReadStream*>(process::instance().stdin()),
+        reinterpret_cast<tty::WriteStream*>(process::instance().stdout())
+    );
   }
   return nullptr;
 }
@@ -129,8 +132,14 @@ void shell::run(std::function<void(const native::Exception&)> callback) {
       rl_->set_prompt(prompt());
     }
   });
+}
 
-  process::run([](){();});
+
+void shell::out(const std::string& text) {
+  process::instance().stdout()->write(Buffer(text), [](){});
+}
+void shell::err(const std::string& text) {
+  process::instance().stderr()->write(Buffer(text), [](){});
 }
 
 }  // namespace native

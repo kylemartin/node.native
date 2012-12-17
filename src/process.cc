@@ -120,15 +120,15 @@ namespace native {
 #endif
   void process::prepareStdio() {
 #ifdef ENABLE_TTY
-    Stream* stdout_ = createWritableStdioStream(1);
+    stdout_ = createWritableStdioStream(1);
     if (stdout_ && tty::isatty(stdout_)) {
       on<signal_event<SIGWINCH>>([=](int signo){
         reinterpret_cast<tty::WriteStream*>(stdout_)->refreshSize();
       });
     }
-    Stream* stderr_ = createWritableStdioStream(2);
+    stderr_ = createWritableStdioStream(2);
 
-    Stream* stdin_ = nullptr;
+    stdin_ = nullptr;
     switch (tty::guessHandleType(0)) {
     case UV_TTY: {
       stdin_ = new tty::ReadStream(0);

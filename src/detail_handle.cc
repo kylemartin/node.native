@@ -41,8 +41,8 @@ void handle::close() {
     delete self;
   });
 
-  handle_ = nullptr;
-  handle::ref();
+//  handle_ = nullptr;
+//  handle::ref();
 
   state_change();
 }

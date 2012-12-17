@@ -106,6 +106,7 @@ namespace native
 		void history_add(const std::string& line);
 
 	private:
+		std::string get_prompt();
 		void write_prompt();
 
 		void refresh_line();
