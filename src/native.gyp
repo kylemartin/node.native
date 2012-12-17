@@ -21,6 +21,7 @@
         'buffers.cc',
         'stream.cc',
         'tty.cc',
+        'readline.cc',
         'shell.cc',
         'net.cc',
         'http_client.cc',

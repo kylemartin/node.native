@@ -10,7 +10,6 @@ namespace net {
 Socket::Socket(detail::stream* handle, Server* server, bool allowHalfOpen)
 : Stream(handle, true, true)
 , socket_type_(SocketType::None)
-, stream_(nullptr)
 , server_(server)
 , flags_(0)
 , allow_half_open_(allowHalfOpen)
@@ -369,13 +368,11 @@ bool Socket::connect(const std::string& ip_or_path, int port, event::connect::ca
 
         if(!r)
         {
-          CRUMB();
           connect_queue_cleanup();
           destroy(r);
         }
         else
         {
-          CRUMB();
           readable(stream_->is_readable());
           writable(stream_->is_writable());
 

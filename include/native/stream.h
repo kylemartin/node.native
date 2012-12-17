@@ -74,7 +74,7 @@ namespace native
             std::size_t pipe_count_;
         };
 
-    private:
+    protected:
         detail::stream* stream_;
         bool readable_;
         bool writable_;

@@ -258,8 +258,9 @@ public:
     // TODO: figure out better way to determine connected state
     return (stream_ && !connecting_ && !destroyed_ && (readable() || writable()));
   }
-private:
+protected:
   void init_socket(detail::stream* stream);
+private:
 
   void destroy_(bool failed, Exception exception);
 
@@ -270,7 +271,6 @@ private:
 
 private:
   int socket_type_;
-  detail::stream* stream_;
 
   Server* server_;
 

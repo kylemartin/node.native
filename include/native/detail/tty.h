@@ -18,18 +18,16 @@ class tty : public stream {
 public:
 	tty(uv_file file, bool readable);
 
-	int enable_raw();
-
-	int disable_raw();
-
+	bool is_raw();
+	int set_raw_mode(bool mode);
 	int get_window_size(int* width, int* height);
-
 	virtual ~tty() {}
 
 private:
 	uv_tty_t tty_;
-    int orig_termios_fd_;
-    struct termios orig_termios_;
+  int orig_termios_fd_;
+  struct termios orig_termios_;
+  bool raw_mode_;
 };
 
 }  // namespace detail

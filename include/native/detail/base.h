@@ -1,23 +1,12 @@
 #ifndef __DETAIL_BASE_H__
 #define __DETAIL_BASE_H__
 
-#include <cassert>
-#include <string>
-#include <vector>
-#include <memory>
-#include <utility>
-#include <functional>
-#include <map>
 #include <unordered_map>
-#include <algorithm>
-#include <list>
-#include <set>
-#include <tuple>
-#include <iostream>
 #include <arpa/inet.h>
 #include <uv.h>
 #include <http_parser.h>
 
+#include "../base.h"
 namespace native
 {
     namespace error

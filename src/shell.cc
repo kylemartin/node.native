@@ -129,6 +129,8 @@ void shell::run(std::function<void(const native::Exception&)> callback) {
       rl_->set_prompt(prompt());
     }
   });
+
+  process::run([](){();});
 }
 
 }  // namespace native

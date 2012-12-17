@@ -121,7 +121,7 @@ namespace native {
   void process::prepareStdio() {
 #ifdef ENABLE_TTY
     Stream* stdout_ = createWritableStdioStream(1);
-    if (tty::isatty(stdout_)) {
+    if (stdout_ && tty::isatty(stdout_)) {
       on<signal_event<SIGWINCH>>([=](int signo){
         reinterpret_cast<tty::WriteStream*>(stdout_)->refreshSize();
       });

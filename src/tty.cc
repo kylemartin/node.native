@@ -7,20 +7,25 @@ namespace native {
 namespace tty {
 
   ReadStream::ReadStream(uv_file file)
-  : native::net::Socket(&tty_,nullptr,false)
+  : native::net::Socket(nullptr,nullptr,false)
   , tty_(file, true)
-  {}
+  {
+    init_socket(&tty_);
+  }
 
-  bool ReadStream::isRaw() { return false; }
-  void ReadStream::setRawMode(bool mode) {}
+  bool ReadStream::isRaw() { return tty_.is_raw(); }
+  void ReadStream::setRawMode(bool mode) {
+    tty_.set_raw_mode(mode);
+  }
   void ReadStream::destroy() { setRawMode(0); }
 
   WriteStream::WriteStream(uv_file file)
-  : native::net::Socket(&tty_,nullptr,false)
+  : native::net::Socket(nullptr,nullptr,false)
   , tty_(file, false)
   , columns_(-1)
   , rows_(-1)
   {
+    init_socket(&tty_);
     registerEvent<event::resize>();
   }
   void WriteStream::refreshSize() {
