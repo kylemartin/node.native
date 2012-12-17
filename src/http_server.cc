@@ -19,7 +19,6 @@ void ServerRequest::server(Server* server) {
 }
 
 void ServerRequest::parser_on_headers_complete() {
-  CRUMB();
   // TODO: Do early header processing and decide whether body should be received
 
   // Emit request event so user can prepare for receiving body
@@ -149,15 +148,12 @@ void Server::on_connection(net::Socket* socket) {
     });
 
     parser->register_on_error([this](const Exception& e) {
-      CRUMB();
       emit<event::error>(e);
     });
     parser->register_on_close([this]() {
-      CRUMB();
       emit<event::error>(Exception("Parser closed before ServerRequest constructed"));
     });
     parser->register_on_end([this]() {
-      CRUMB();
       emit<event::error>(Exception("Parser end before ServerRequest constructed"));
     });
 }

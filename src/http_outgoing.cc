@@ -135,12 +135,10 @@ void OutgoingMessage::end(const Buffer& buf) {
 //
 //        if(socket_->end(buf))
 //        {
-//          CRUMB();
 //            socket_ = nullptr;
 //        }
 //        else
 //        {
-//          CRUMB();
 //            emit<native::event::error>(Exception("Failed to close the socket."));
 //        }
 //  return false;
@@ -211,7 +209,6 @@ void OutgoingMessage::end(const Buffer& buf) {
           // HACKY.
 
           if (this->chunkedEncoding_) {
-            CRUMB();
             // TODO: do this without stringstream
             std::stringstream ss;
             ss << header_.str()
@@ -220,13 +217,11 @@ void OutgoingMessage::end(const Buffer& buf) {
               << trailer_.str() << CRLF;
             socket_->write(Buffer(ss.str()));
           } else {
-            CRUMB();
             socket_->write(Buffer(std::string(header_.base(), header_.size()) +
                 std::string(data.base(),data.size())));
           }
           this->headerSent_ = true;
         } else if (data.size() > 0) {
-          CRUMB();
           // Normal body write
           write(data);
         }
@@ -241,14 +236,11 @@ void OutgoingMessage::end(const Buffer& buf) {
 //js:  }
 //js:  this.finished = true;
         if (!hot) {
-          CRUMB();
           if (this->chunkedEncoding_) {
-            CRUMB();
             this->_send(Buffer(std::string("0") + CRLF +
                 std::string(this->trailer_.base(), this->trailer_.size()) + CRLF
             )); // Last chunk
           } else {
-            CRUMB();
             // Force a flush, HACK.
             this->_send(Buffer());
           }
@@ -448,12 +440,10 @@ void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_t
 }
 
 headers_type OutgoingMessage::_renderHeaders() {
-  CRUMB();
   return headers_;
 }
 
 void OutgoingMessage::_flush() {
-  CRUMB();
   // This logic is probably a bit confusing. Let me explain a bit:
   //
   // In both HTTP servers and clients it is possible to queue up several
@@ -509,13 +499,11 @@ void OutgoingMessage::_flush() {
 
 // TODO: handle encoding
 void OutgoingMessage::_send(const Buffer& buf) {
-  CRUMB();
   // This is a shameful hack to get the headers and first body chunk onto
   // the same packet. Future versions of Node are going to take care of
   // this at a lower level and in a more general way.
 //js:  if (!this._headerSent) {
   if (!this->headerSent_) {
-    CRUMB();
     // TODO: handle output buffering
 //js:    if (typeof data === 'string') {
 //js:      data = this._header + data;
@@ -539,7 +527,6 @@ void OutgoingMessage::_send(const Buffer& buf) {
 
 // TODO: handle encoding
 void OutgoingMessage::_writeRaw(const Buffer& buf) {
-  CRUMB();
 //js:  if (data.length === 0) {
 //js:    return true;
 //js:  }
@@ -574,7 +561,6 @@ void OutgoingMessage::_writeRaw(const Buffer& buf) {
 
 // TODO: handle encoding
 void OutgoingMessage::_buffer(const Buffer& buf) {
-  CRUMB();
 
 //js:  if (data.length === 0) return;
   if (buf.size() <= 0) return;
@@ -610,7 +596,6 @@ void OutgoingMessage::_buffer(const Buffer& buf) {
 }
 
 void OutgoingMessage::_finish() {
-  CRUMB();
   assert(socket_);
   // TODO: Port DTrace
 //js:        if (this instanceof ServerResponse) {

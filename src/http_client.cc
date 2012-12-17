@@ -288,7 +288,6 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
 }
 
 void ClientRequest::on_response_end() {
-  CRUMB();
 //js:            function responseOnEnd() {
 //js:              var res = this;
 //js:              var req = res.req;
@@ -323,17 +322,14 @@ void ClientRequest::on_response_end() {
 }
 
 void ClientRequest::on_socket_connect() {
-  CRUMB();
   assert(socket_);
   emit<native::event::connect>();
 }
 
 void ClientRequest::on_socket_drain() {
-  CRUMB();
 }
 
 void ClientRequest::on_socket_error(const Exception& e) {
-  CRUMB();
 
 //js:  function socketErrorListener(err) {
 //js:    var socket = this;
@@ -359,7 +355,6 @@ void ClientRequest::on_socket_error(const Exception& e) {
 }
 
 void ClientRequest::on_socket_data(const Buffer& buf) {
-  CRUMB();
 //js:  function socketOnData(d, start, end) {
 //js:    var socket = this;
 //js:    var req = this._httpMessage;
@@ -410,7 +405,6 @@ void ClientRequest::on_socket_data(const Buffer& buf) {
 }
 
 void ClientRequest::on_socket_end() {
-  CRUMB();
 //js:  function socketOnEnd() {
 //js:    var socket = this;
 //js:    var req = this._httpMessage;
@@ -431,7 +425,6 @@ void ClientRequest::on_socket_end() {
 }
 
 void ClientRequest::on_socket_close() {
-  CRUMB();
 //js:  function socketCloseListener() {
 //js:    var socket = this;
 //js:    var parser = socket.parser;
@@ -463,7 +456,6 @@ void ClientRequest::on_socket_close() {
 
 ClientRequest* request(const std::string& url_string,
     std::function<void(ClientResponse*)> callback) {
-  CRUMB();
   detail::url_obj url;
   url.parse(url_string.c_str(), url_string.length());
 
@@ -478,7 +470,6 @@ ClientRequest* request(const std::string& url_string,
 
 ClientRequest* get(const std::string& url_string,
     std::function<void(ClientResponse*)> callback) {
-  CRUMB();
   ClientRequest* req = request(url_string, callback);
   req->end();
   return req;

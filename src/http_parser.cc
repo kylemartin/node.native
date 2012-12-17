@@ -185,7 +185,6 @@ void Parser::registerSocketEvents() {
  * @param append
  */
 void Parser::add_header(const std::string& name, const std::string& value) {
-  CRUMB();
   // If no IncomingMessage created yet
   if (!incoming_) {
     // Prepare http_start_line and parser state
@@ -252,7 +251,6 @@ void Parser::add_header(const std::string& name, const std::string& value) {
  */
 bool Parser::feed_data(const char* data, std::size_t offset,
     std::size_t length) {
-  CRUMB();
   ::http_parser_execute(&parser_, &settings_, &data[offset], length);
   if (parser_.http_errno != HPE_OK) {
     // there was an error
@@ -285,7 +283,6 @@ void Parser::reset() {
  * @return
  */
 int Parser::on_message_begin_(http_parser* parser) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
   self->reset();
@@ -301,7 +298,6 @@ int Parser::on_message_begin_(http_parser* parser) {
  */
 int Parser::on_url_(http_parser* parser, const char *at,
     size_t len) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
 
@@ -324,7 +320,6 @@ int Parser::on_url_(http_parser* parser, const char *at,
  */
 int Parser::on_header_field_(http_parser* parser, const char* at,
     size_t len) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
 
@@ -355,7 +350,6 @@ int Parser::on_header_field_(http_parser* parser, const char* at,
  */
 int Parser::on_header_value_(http_parser* parser, const char* at,
     size_t len) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
 
@@ -377,7 +371,6 @@ int Parser::on_header_value_(http_parser* parser, const char* at,
  * @return
  */
 int Parser::on_headers_complete_(http_parser* parser) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
   assert(&self->parser_ == parser);
@@ -404,7 +397,6 @@ int Parser::on_headers_complete_(http_parser* parser) {
  */
 int Parser::on_body_(http_parser* parser, const char* at,
     size_t len) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
 
@@ -419,7 +411,6 @@ int Parser::on_body_(http_parser* parser, const char* at,
  * @return
  */
 int Parser::on_message_complete_(http_parser* parser) {
-  CRUMB();
   auto self = reinterpret_cast<Parser*>(parser->data);
   assert(self);
 

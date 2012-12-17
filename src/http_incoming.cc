@@ -41,12 +41,10 @@ bool IncomingMessage::readable() {
 }
 
 void IncomingMessage::pause() {
-  CRUMB();
   socket_->pause();
   paused_ = true;
 }
 void IncomingMessage::resume() {
-  CRUMB();
   assert(socket_);
   socket_->resume();
 
@@ -62,7 +60,6 @@ void IncomingMessage::destroy(const Exception& e) {
  * @param callback
  */
 void IncomingMessage::_emitPending(std::function<void()> callback) {
-  CRUMB();
   if (pendings_.size() > 0) {
     for (std::vector<Buffer>::iterator it = pendings_.begin();
         it != pendings_.end(); ++it) {
@@ -72,17 +69,14 @@ void IncomingMessage::_emitPending(std::function<void()> callback) {
   }
 }
 void IncomingMessage::_emitData(const Buffer& buf) {
-  CRUMB();
   emit<native::event::data>(buf);
 }
 void IncomingMessage::_emitEnd() {
-  CRUMB();
   if (!endEmitted_) emit<native::event::end>();
   endEmitted_ = true;
 }
 void IncomingMessage::_addHeaderLine(const std::string& field,
     const std::string& value) {
-  CRUMB();
 }
 
 /*
@@ -128,7 +122,6 @@ bool IncomingMessage::upgrade() {
 }
 
 void IncomingMessage::end() {
-  CRUMB();
   if (haveListener<native::event::end>()) {
     emit<native::event::end>();
   }
@@ -140,7 +133,6 @@ void IncomingMessage::end() {
  * @param value
  */
 void IncomingMessage::parser_add_header(const std::string& name, const std::string& value) {
-  CRUMB();
   bool append = false; // TODO: check headers to append by default
   if (!body_) {
     headers_[name] =
@@ -209,7 +201,6 @@ void IncomingMessage::parser_on_error(const Exception& e) {
 }
 
 void IncomingMessage::parser_on_headers_complete() {
-  CRUMB();
 }
 
 } //namespace http

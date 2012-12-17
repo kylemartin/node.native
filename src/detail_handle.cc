@@ -32,7 +32,6 @@ void handle::set_handle(uv_handle_t* h) {
 }
 
 void handle::close() {
-  CRUMB();
   if (!handle_)
     return;
 
