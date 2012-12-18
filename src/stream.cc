@@ -113,7 +113,7 @@ Stream::pipe_context::pipe_context(Stream* source, Stream* destination,
   destination_->emit<event::pipe>(source_);
 }
 
-void Stream::pipe_context::on_error(Exception exception) {
+void Stream::pipe_context::on_error(const Exception& exception) {
   cleanup();
 }
 

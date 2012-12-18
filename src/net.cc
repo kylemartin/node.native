@@ -41,9 +41,7 @@ Socket::Socket(detail::stream* handle, Server* server, bool allowHalfOpen)
 /**
  *  @brief Socket destructor.
  */
-Socket::~Socket() {
-  DBG("~Socket()");
-}
+Socket::~Socket() {}
 
 bool Socket::end(const Buffer& buffer)
 {
@@ -162,7 +160,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
   return stream_->write_queue_size() == 0;
 }
 
-void Socket::destroy(Exception exception)
+void Socket::destroy(const Exception& exception)
 {
   DBG("destroy with error");
   destroy_(true, exception);
@@ -476,6 +474,8 @@ void Socket::destroy_(bool failed, Exception exception)
   {
     stream_->close();
     stream_->on_read(nullptr);
+    stream_->on_complete(nullptr);
+    stream_->on_connection(nullptr);
     stream_ = nullptr;
   }
 

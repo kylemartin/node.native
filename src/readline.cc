@@ -67,8 +67,8 @@ namespace native
 		void readline::destroy() {
 			ttyi->destroy();
 			ttyo->destroy();
-			ttyi.reset();
-			ttyo.reset();
+//			ttyi.reset();
+//			ttyo.reset();
 		}
 
 		void readline::set_prompt(const std::string& prompt) {

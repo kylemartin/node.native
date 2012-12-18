@@ -17,11 +17,11 @@ namespace detail {
 class tty : public stream {
 public:
 	tty(uv_file file, bool readable);
+	virtual ~tty() {}
 
 	bool is_raw();
 	int set_raw_mode(bool mode);
 	int get_window_size(int* width, int* height);
-	virtual ~tty() {}
 
 private:
 	uv_tty_t tty_;

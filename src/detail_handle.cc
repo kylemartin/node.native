@@ -36,13 +36,15 @@ void handle::close() {
     return;
 
   uv_close(handle_, [](uv_handle_t* h) {
+    CRUMB();
     auto self = reinterpret_cast<handle*>(h->data);
     assert(self && self->handle_ == nullptr);
-    delete self;
+    // TODO: ensure heap allocated handles are always deleted upon closing
+//    delete self;
   });
 
-//  handle_ = nullptr;
-//  handle::ref();
+  ref();
+  handle_ = nullptr;
 
   state_change();
 }

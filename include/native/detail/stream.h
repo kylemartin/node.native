@@ -19,8 +19,7 @@ namespace native
         protected:
             stream(uv_stream_t* stream);
 
-            virtual ~stream()
-            {}
+            virtual ~stream() {}
 
         public:
             void on_read(on_read_callback_type callback);

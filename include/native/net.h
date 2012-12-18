@@ -170,25 +170,21 @@ public:
       nullptr);
 
   /**
-   *  @brief Destorys the socket stream.
-   *
-   *  You should call this function only when there was an error.
+   *  @brief Destorys the socket stream after an error.
    *
    *  @param exception        Exception object.
    */
-  virtual void destroy(Exception exception);
+  virtual void destroy(const Exception& exception);
 
   /**
    *  @brief Destorys the socket stream.
    *
-   *  You should call this function only when there was an error.
    */
   virtual void destroy();
 
   /**
    *  @brief Destorys the socket stream after the write queue is drained.
    *
-   *  You should call this function only when there was an error.
    */
   virtual void destroySoon();
 

@@ -38,7 +38,7 @@ namespace native
         virtual bool end(const std::string& str, const detail::encoding_type& encoding, int fd) = 0;
         virtual bool end() = 0;
 
-        virtual void destroy(Exception exception) = 0;
+        virtual void destroy(const Exception& exception) = 0;
         virtual void destroy() = 0;
         virtual void destroySoon() = 0;
 
@@ -52,7 +52,7 @@ namespace native
         struct pipe_context
         {
             pipe_context(Stream* source, Stream* destination, const util::dict& options);
-            void on_error(Exception exception);
+            void on_error(const Exception& exception);
             void on_close();
             void on_end();
             void cleanup();

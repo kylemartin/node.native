@@ -17,7 +17,10 @@ namespace tty {
   void ReadStream::setRawMode(bool mode) {
     tty_.set_raw_mode(mode);
   }
-  void ReadStream::destroy() { setRawMode(0); }
+  void ReadStream::destroy() {
+    setRawMode(0);
+    Socket::destroy();
+  }
 
   WriteStream::WriteStream(uv_file file)
   : native::net::Socket(nullptr,nullptr,false)
