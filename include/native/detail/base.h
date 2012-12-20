@@ -182,8 +182,8 @@ namespace native
 
         inline resval from_ip4_addr(sockaddr_in* src, std::string& ip, int& port)
         {
-            char dest[16];
-            if(uv_ip4_name(src, dest, 16)) get_last_error();
+            char dest[INET_ADDRSTRLEN];
+            if(uv_ip4_name(src, dest, 16)) return get_last_error();
 
             ip = dest;
             port = static_cast<int>(ntohs(src->sin_port));
@@ -192,12 +192,29 @@ namespace native
 
         inline resval from_ip6_addr(sockaddr_in6* src, std::string& ip, int& port)
         {
-            char dest[46];
-            if(uv_ip6_name(src, dest, 46)) get_last_error();
+            char dest[INET6_ADDRSTRLEN];
+            if(uv_ip6_name(src, dest, 46)) return get_last_error();
 
             ip = dest;
             port = static_cast<int>(ntohs(src->sin6_port));
             return resval();
+        }
+
+        inline std::shared_ptr<net_addr> get_net_addr(const sockaddr* addr) {
+
+          assert(addr->sa_family == AF_INET || addr->sa_family == AF_INET6);
+
+          auto na = std::shared_ptr<net_addr>(new net_addr);
+          na->is_ipv4 = (addr->sa_family == AF_INET);
+          if(na->is_ipv4)
+          {
+              if(from_ip4_addr(reinterpret_cast<struct sockaddr_in*>(&addr), na->ip, na->port)) return na;
+          }
+          else
+          {
+              if(from_ip6_addr(reinterpret_cast<struct sockaddr_in6*>(&addr), na->ip, na->port)) return na;
+          }
+          return nullptr;
         }
 
         class scl_base

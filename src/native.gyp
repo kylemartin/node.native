@@ -15,6 +15,7 @@
         'detail_tcp.cc',
         'detail_http.cc',
         'detail_tty.cc',
+        'detail_udp.cc',
         'native.cc',
         'process.cc',
         'timers.cc',

@@ -23,18 +23,7 @@ namespace detail
 
       if(uv_tcp_getsockname(&tcp_, reinterpret_cast<struct sockaddr*>(&addr), &addrlen) == 0)
       {
-          assert(addr.ss_family == AF_INET || addr.ss_family == AF_INET6);
-
-          auto na = std::shared_ptr<net_addr>(new net_addr);
-          na->is_ipv4 = (addr.ss_family == AF_INET);
-          if(na->is_ipv4)
-          {
-              if(from_ip4_addr(reinterpret_cast<struct sockaddr_in*>(&addr), na->ip, na->port)) return na;
-          }
-          else
-          {
-              if(from_ip6_addr(reinterpret_cast<struct sockaddr_in6*>(&addr), na->ip, na->port)) return na;
-          }
+        return get_net_addr(reinterpret_cast<const sockaddr*>(&addr));
       }
 
       return nullptr;
@@ -47,18 +36,7 @@ namespace detail
 
       if(uv_tcp_getsockname(&tcp_, reinterpret_cast<struct sockaddr*>(&addr), &addrlen) == 0)
       {
-          assert(addr.ss_family == AF_INET || addr.ss_family == AF_INET6);
-
-          auto na = std::shared_ptr<net_addr>(new net_addr);
-          na->is_ipv4 = (addr.ss_family == AF_INET);
-          if(na->is_ipv4)
-          {
-              if(from_ip4_addr(reinterpret_cast<struct sockaddr_in*>(&addr), na->ip, na->port)) return na;
-          }
-          else
-          {
-              if(from_ip6_addr(reinterpret_cast<struct sockaddr_in6*>(&addr), na->ip, na->port)) return na;
-          }
+        return get_net_addr(reinterpret_cast<const sockaddr*>(&addr));
       }
 
       return nullptr;
