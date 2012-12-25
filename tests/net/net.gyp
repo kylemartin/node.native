@@ -37,6 +37,7 @@
       ],
       'sources': [
         'test-socket.cc',
+        'test-udp.cc'
       ]
     }
   ],

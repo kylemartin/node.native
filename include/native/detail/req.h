@@ -24,11 +24,13 @@
 
 #include <assert.h>
 
+#include "base.h"
 #include "ngx-queue.h"
 
 namespace native {
 namespace detail {
 
+// defined in detail_udp.cc
 extern ngx_queue_t req_wrap_queue;
 
 /**
@@ -47,7 +49,7 @@ extern ngx_queue_t req_wrap_queue;
 template <typename T>
 class req {
  public:
-  req() : data_(nullptr), req_() {
+  req() : req_wrap_queue_(), data_(nullptr), req_() {
     ngx_queue_insert_tail(&req_wrap_queue, &req_wrap_queue_);
   }
 

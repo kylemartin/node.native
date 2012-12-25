@@ -10,10 +10,13 @@ namespace detail {
 
 class udp: public handle {
  public:
+  udp();
+  virtual ~udp();
+
   uv_udp_t* uv_udp();
 
-  resval bind(const std::string& address, int port, int flags);
-  resval bind6(const std::string& address, int port, int flags);
+  resval bind(const std::string& address, int port, int flags = 0);
+  resval bind6(const std::string& address, int port, int flags = 0);
 
   #define X(name)                                                           \
     resval name(int flag);
@@ -28,18 +31,20 @@ class udp: public handle {
   resval add_membership(const std::string& address, const std::string& iface);
   resval drop_membership(const std::string& address, const std::string& iface);
 
-  resval send(Buffer& buffer, size_t offset, size_t length
+  resval send(const Buffer& buffer, size_t offset, size_t length
       , const unsigned short port, const std::string& address);
-  resval send6(Buffer& buffer, size_t offset, size_t length
+  resval send6(const Buffer& buffer, size_t offset, size_t length
       , const unsigned short port, const std::string& address);
 
   resval recv_start();
   resval recv_stop();
   std::shared_ptr<net_addr> get_sock_name();
 
+  typedef std::function<void(udp*, const Buffer&, int, ssize_t, std::shared_ptr<net_addr>)> on_message_t;
+
+  void on_message(on_message_t callback);
+
  private:
-  udp();
-  virtual ~udp();
 
 
   resval bind(const std::string& address, int port, int flags, unsigned int family);
@@ -47,7 +52,7 @@ class udp: public handle {
   resval set_membership(const std::string& address, const std::string& iface,
                                        uv_membership membership);
 
-  resval send(Buffer& buffer, size_t offset, size_t length
+  resval send(const Buffer& buffer, size_t offset, size_t length
       , const unsigned short port, const std::string& address, int family);
 
   static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size);
@@ -60,7 +65,6 @@ class udp: public handle {
 
   uv_udp_t udp_;
 
-  typedef std::function<void(udp*, const Buffer&, int, ssize_t, std::shared_ptr<net_addr>)> on_message_t;
   on_message_t on_message_;
 };
 

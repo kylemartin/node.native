@@ -28,6 +28,8 @@
 namespace native {
 namespace detail {
 
+ngx_queue_t req_wrap_queue = { &req_wrap_queue, &req_wrap_queue };
+
 class send_req : public req<uv_udp_send_t>
 {
 public:
@@ -113,7 +115,7 @@ resval udp::drop_membership(const std::string& address, const std::string& iface
 
 
 
-resval udp::send(Buffer& buffer, size_t offset, size_t length
+resval udp::send(const Buffer& buffer, size_t offset, size_t length
     , const unsigned short port, const std::string& address, int family) {
   int r;
 
@@ -124,7 +126,7 @@ resval udp::send(Buffer& buffer, size_t offset, size_t length
   request->data_ = this;
   request->buffer_ = buffer;
 
-  uv_buf_t buf = uv_buf_init(buffer.base() + offset, length);
+  uv_buf_t buf = uv_buf_init(const_cast<char*>(buffer.base()) + offset, length);
 
   switch (family) {
   case AF_INET:
@@ -150,13 +152,13 @@ resval udp::send(Buffer& buffer, size_t offset, size_t length
 }
 
 
-resval udp::send(Buffer& buffer, size_t offset, size_t length
+resval udp::send(const Buffer& buffer, size_t offset, size_t length
     , const unsigned short port, const std::string& address) {
   return send(buffer, offset, length, port, address, AF_INET);
 }
 
 
-resval udp::send6(Buffer& buffer, size_t offset, size_t length
+resval udp::send6(const Buffer& buffer, size_t offset, size_t length
     , const unsigned short port, const std::string& address) {
   return send(buffer, offset, length, port, address, AF_INET6);
 }
@@ -227,6 +229,10 @@ void udp::on_recv(uv_udp_t* handle,
   }
 
   socket->on_message_(socket, Buffer(buf.base, buf.len), 0, nread, get_net_addr(addr));
+}
+
+void udp::on_message(on_message_t callback) {
+  on_message_ = callback;
 }
 
 }  // namespace detail

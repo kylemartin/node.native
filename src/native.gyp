@@ -25,6 +25,7 @@
         'readline.cc',
         'shell.cc',
         'net.cc',
+        'udp.cc',
         'http_client.cc',
         'http_incoming.cc',
         'http_outgoing.cc',
