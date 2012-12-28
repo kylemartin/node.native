@@ -10,6 +10,10 @@ namespace detail {
 
 class udp: public handle {
  public:
+
+  typedef std::function<void(udp*, const Buffer&, std::shared_ptr<net_addr>)> on_message_t;
+  typedef std::function<void(const resval&)> on_complete_t;
+
   udp();
   virtual ~udp();
 
@@ -32,20 +36,17 @@ class udp: public handle {
   resval drop_membership(const std::string& address, const std::string& iface);
 
   resval send(const Buffer& buffer, size_t offset, size_t length
-      , const unsigned short port, const std::string& address);
+      , const unsigned short port, const std::string& address, on_complete_t callback = nullptr);
   resval send6(const Buffer& buffer, size_t offset, size_t length
-      , const unsigned short port, const std::string& address);
+      , const unsigned short port, const std::string& address, on_complete_t callback = nullptr);
 
   resval recv_start();
   resval recv_stop();
   std::shared_ptr<net_addr> get_sock_name();
 
-  typedef std::function<void(udp*, const Buffer&, int, ssize_t, std::shared_ptr<net_addr>)> on_message_t;
-
   void on_message(on_message_t callback);
 
  private:
-
 
   resval bind(const std::string& address, int port, int flags, unsigned int family);
 //  static Handle<Value> DoSend(const Arguments& args, int family);
@@ -53,7 +54,7 @@ class udp: public handle {
                                        uv_membership membership);
 
   resval send(const Buffer& buffer, size_t offset, size_t length
-      , const unsigned short port, const std::string& address, int family);
+      , const unsigned short port, const std::string& address, on_complete_t callback, int family);
 
   static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size);
   static void on_send(uv_udp_send_t* req, int status);

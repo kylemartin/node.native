@@ -121,8 +121,8 @@ udp::udp(const udp_type& type)
   registerEvent<native::event::close>();
   registerEvent<native::event::error>();
 
-  udp_.on_message([this](detail::udp* self, const detail::Buffer& buf, int offset, ssize_t length, std::shared_ptr<detail::net_addr> address){
-    this->on_message(self, buf, offset, length, address);
+  udp_.on_message([this](detail::udp* self, const detail::Buffer& buf, std::shared_ptr<detail::net_addr> address){
+    this->on_message(self, buf, address);
   });
 }
 
@@ -259,7 +259,9 @@ void udp::bind(){
 //    req.cb(null, buffer.length); // compatibility with dgram_legacy.js
 //}
 
-detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length, unsigned short int port, const std::string& address) {
+detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
+    , unsigned short int port, const std::string& address
+    , detail::udp::on_complete_t callback) {
   if (offset >= buf.size()) {
     throw new Exception("Offset into buffer too large");
   }
@@ -267,8 +269,8 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
     throw new Exception("Offset+length into buffer too large");
   }
   // TODO: handle address lookup
-  detail::resval r = udp_.send(buf, offset, length, port, address);
-  if (r) {
+  detail::resval r = udp_.send(buf, offset, length, port, address, callback);
+  if (!r) {
     emit<event::error>(Exception(r));
   }
   return r;
@@ -281,8 +283,13 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //  this._handle = null;
 //  this.emit('close');
 //};
-//
-//
+
+void udp::close() {
+  stopReceiving_();
+  udp_.close();
+  emit<event::close>();
+}
+
 //Socket.prototype.address = function() {
 //  this._healthCheck();
 //
@@ -292,15 +299,11 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //
 //  return address;
 //};
-//
-//
-//Socket.prototype.setBroadcast = function(arg) {
-//  if (this._handle.setBroadcast((arg) ? 1 : 0)) {
-//    throw errnoException(errno, 'setBroadcast');
-//  }
-//};
-//
-//
+
+std::shared_ptr<detail::net_addr> udp::address() {
+  return udp_.get_sock_name();
+}
+
 //Socket.prototype.setTTL = function(arg) {
 //  if (typeof arg !== 'number') {
 //    throw new TypeError('Argument must be a number');
@@ -313,6 +316,11 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //  return arg;
 //};
 //
+//Socket.prototype.setBroadcast = function(arg) {
+//  if (this._handle.setBroadcast((arg) ? 1 : 0)) {
+//    throw errnoException(errno, 'setBroadcast');
+//  }
+//};
 //
 //Socket.prototype.setMulticastTTL = function(arg) {
 //  if (typeof arg !== 'number') {
@@ -336,8 +344,22 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //
 //  return arg; // 0.4 compatibility
 //};
-//
-//
+
+#define X(name)                                                                \
+  void udp::name(int flag) {                                                   \
+    if (detail::resval r = udp_.name(flag)) {                                  \
+      throw Exception(r);                                                      \
+    }                                                                          \
+  }
+
+X(set_ttl)
+X(set_broadcast)
+X(set_multicast_ttl)
+X(set_multicast_loopback)
+
+#undef X
+
+
 //Socket.prototype.addMembership = function(multicastAddress,
 //                                          interfaceAddress) {
 //  this._healthCheck();
@@ -380,6 +402,13 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //  this._receiving = false;
 //  this.fd = null; // compatibility hack
 //};
+
+void udp::stopReceiving_() {
+ if (!receiving_) return;
+ udp_.recv_stop();
+ receiving_ = false;
+}
+
 //
 //
 //function onMessage(handle, slab, start, len, rinfo) {
@@ -389,8 +418,11 @@ detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
 //  self.emit('message', slab.slice(start, start + len), rinfo);
 //}
 
-void udp::on_message(detail::udp* self, const detail::Buffer& buf, int offset, ssize_t length, std::shared_ptr<detail::net_addr> address) {
+void udp::on_message(detail::udp* self, const detail::Buffer& buf, std::shared_ptr<detail::net_addr> address) {
   CRUMB();
+  if (buf.size() > 0) {
+    emit<event::udp::message>(buf, address);
+  }
 }
 
 //Socket.prototype.ref = function() {

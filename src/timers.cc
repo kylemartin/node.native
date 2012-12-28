@@ -64,7 +64,7 @@ namespace native {
   }
 
   detail::resval timer::start(int64_t timeout, int64_t repeat) {
-    DBG("timer::start(" << timeout << ", " << repeat << ")");
+//    DBG("timer::start(" << timeout << ", " << repeat << ")");
     timeout_ = timeout;
     return detail::run_(uv_timer_start, &timer_, handle_timeout_, timeout, repeat);
   }

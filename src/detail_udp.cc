@@ -33,9 +33,7 @@ ngx_queue_t req_wrap_queue = { &req_wrap_queue, &req_wrap_queue };
 class send_req : public req<uv_udp_send_t>
 {
 public:
-  typedef std::function<void(int, udp*, send_req*, const Buffer&)> on_complete_t;
-
-  on_complete_t on_complete_;
+  udp::on_complete_t on_complete_;
   Buffer buffer_;
 };
 
@@ -116,7 +114,8 @@ resval udp::drop_membership(const std::string& address, const std::string& iface
 
 
 resval udp::send(const Buffer& buffer, size_t offset, size_t length
-    , const unsigned short port, const std::string& address, int family) {
+    , const unsigned short port, const std::string& address
+    , on_complete_t callback, int family) {
   int r;
 
   assert(offset < buffer.size());
@@ -125,6 +124,7 @@ resval udp::send(const Buffer& buffer, size_t offset, size_t length
   send_req* request = new send_req();
   request->data_ = this;
   request->buffer_ = buffer;
+  request->on_complete_ = callback;
 
   uv_buf_t buf = uv_buf_init(const_cast<char*>(buffer.base()) + offset, length);
 
@@ -153,14 +153,16 @@ resval udp::send(const Buffer& buffer, size_t offset, size_t length
 
 
 resval udp::send(const Buffer& buffer, size_t offset, size_t length
-    , const unsigned short port, const std::string& address) {
-  return send(buffer, offset, length, port, address, AF_INET);
+    , const unsigned short port, const std::string& address
+    , on_complete_t callback) {
+  return send(buffer, offset, length, port, address, callback, AF_INET);
 }
 
 
 resval udp::send6(const Buffer& buffer, size_t offset, size_t length
-    , const unsigned short port, const std::string& address) {
-  return send(buffer, offset, length, port, address, AF_INET6);
+    , const unsigned short port, const std::string& address
+    , on_complete_t callback) {
+  return send(buffer, offset, length, port, address, callback, AF_INET6);
 }
 
 
@@ -194,12 +196,18 @@ std::shared_ptr<net_addr> udp::get_sock_name() {
 
 // TODO share with StreamWrap::AfterWrite() in stream_wrap.cc
 void udp::on_send(uv_udp_send_t* req, int status) {
-  assert(req != NULL);
+  assert(req != nullptr);
 
   send_req* request = reinterpret_cast<send_req*>(req->data);
   udp* socket = reinterpret_cast<udp*>(request->data_);
 
-  request->on_complete_(status, socket, request, request->buffer_);
+  if (request->on_complete_) {
+    if (status >= 0) {
+      request->on_complete_(resval());
+    } else {
+      request->on_complete_(get_last_error());
+    }
+  }
   delete request;
 }
 
@@ -224,11 +232,13 @@ void udp::on_recv(uv_udp_t* handle,
   if (nread == 0) return;
 
   if (nread < 0) {
-    socket->on_message_(socket, Buffer(), 0, 0, std::shared_ptr<net_addr>());
+    socket->on_message_(socket, Buffer(), std::shared_ptr<net_addr>());
     return;
   }
 
-  socket->on_message_(socket, Buffer(buf.base, buf.len), 0, nread, get_net_addr(addr));
+  assert(buf.len >= nread);
+
+  socket->on_message_(socket, Buffer(buf.base, nread), get_net_addr(addr));
 }
 
 void udp::on_message(on_message_t callback) {
