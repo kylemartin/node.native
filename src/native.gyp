@@ -16,6 +16,7 @@
         'detail_http.cc',
         'detail_tty.cc',
         'detail_udp.cc',
+        'detail_dns.cc',
         'native.cc',
         'process.cc',
         'timers.cc',
@@ -34,6 +35,7 @@
       ],
       
       'dependencies': [
+      	'../deps/cares/cares.gyp:cares',
         '../deps/uv/uv.gyp:libuv',
         '../deps/http-parser/http_parser.gyp:http_parser',
       ],

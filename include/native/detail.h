@@ -13,5 +13,6 @@
 #include "detail/signal.h"
 #include "detail/buffers.h"
 #include "detail/udp.h"
+#include "detail/dns.h"
 
 #endif

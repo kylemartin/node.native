@@ -11,37 +11,33 @@ namespace native {
     struct message : public util::callback_def<const detail::Buffer&, std::shared_ptr<detail::net_addr>> {};
   }}
 
-  enum udp_type {
-    UDP4,
-    UDP6
-  };
-
   class udp : public EventEmitter {
   public:
+
+    enum udp_type {
+      UDP4,
+      UDP6
+    };
+
     typedef std::function<void(const detail::Buffer&, std::shared_ptr<detail::net_addr>)> message_callback_t;
     typedef std::function<void()> send_callback_t;
-//  dgram.createSocket(type, [callback])
+
     static udp* createSocket(const udp_type& type, message_callback_t callback);
-//    dgram.send(buf, offset, length, port, address, [callback])
+
     detail::resval send(const detail::Buffer& buf, size_t offset, size_t length
         , unsigned short int port, const std::string& address
         , detail::udp::on_complete_t callback = nullptr);
 
-//    dgram.bind(port, [address])
     void bind();
     void bind(int port, const std::string& address = "127.0.0.1");
-//    dgram.close()
+
     void close();
 
-    //    dgram.address()
     std::shared_ptr<detail::net_addr> address();
-//    dgram.addMembership(multicastAddress, [multicastInterface])
-//    dgram.dropMembership(multicastAddress, [multicastInterface])
 
-//    dgram.setBroadcast(flag)
-//    dgram.setTTL(ttl)
-//    dgram.setMulticastTTL(ttl)
-//    dgram.setMulticastLoopback(flag)
+    void add_membership(const std::string& address, const std::string& iface);
+    void drop_membership(const std::string& address, const std::string& iface);
+
 #define X(name)                                                           \
   void name(int flag);
 

@@ -199,7 +199,7 @@ void udp::on_send(uv_udp_send_t* req, int status) {
   assert(req != nullptr);
 
   send_req* request = reinterpret_cast<send_req*>(req->data);
-  udp* socket = reinterpret_cast<udp*>(request->data_);
+//  udp* socket = reinterpret_cast<udp*>(request->data_);
 
   if (request->on_complete_) {
     if (status >= 0) {
@@ -213,7 +213,7 @@ void udp::on_send(uv_udp_send_t* req, int status) {
 
 
 uv_buf_t udp::on_alloc(uv_handle_t* handle, size_t suggested_size) {
-  udp* socket = static_cast<udp*>(handle->data);
+//  udp* socket = static_cast<udp*>(handle->data);
   // TODO: use slab allocator to allocate space for udp messages
   char* buf = new char[suggested_size];
   return uv_buf_init(buf, suggested_size);
@@ -236,7 +236,7 @@ void udp::on_recv(uv_udp_t* handle,
     return;
   }
 
-  assert(buf.len >= nread);
+  assert(nread > 0 && buf.len >= (size_t) nread);
 
   socket->on_message_(socket, Buffer(buf.base, nread), get_net_addr(addr));
 }

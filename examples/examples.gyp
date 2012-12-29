@@ -47,6 +47,12 @@
       'type': 'executable',
       'sources': [ 'signals.cc' ],
       'dependencies': [ '../src/native.gyp:native' ]
+    },
+    {
+      'target_name': 'dns',
+      'type': 'executable',
+      'sources': [ 'dns.cc' ],
+      'dependencies': [ '../src/native.gyp:native' ]
     }
   ] # end targets
 }

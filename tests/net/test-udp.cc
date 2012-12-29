@@ -12,7 +12,7 @@ TEST(UDPSend) {
 	process::run([&](){
 	  std::cout << "Running UDPSend" << std::endl << std::flush;
 
-	  socket = udp::createSocket(UDP4,[](const Buffer& buf, std::shared_ptr<detail::net_addr> address){
+	  socket = udp::createSocket(udp::UDP4,[](const Buffer& buf, std::shared_ptr<detail::net_addr> address){
 	    CHECK(false == "should not have received datagram!");
 	  });
 
@@ -60,7 +60,7 @@ TEST(UDPReceive) {
   process::run([&](){
     std::cout << "Running UDPReceive" << std::endl << std::flush;
 
-    socket = udp::createSocket(UDP4,[&](const Buffer& buf, std::shared_ptr<detail::net_addr> address){
+    socket = udp::createSocket(udp::UDP4,[&](const Buffer& buf, std::shared_ptr<detail::net_addr> address){
       std::cout << "received datagram: " << buf.str() << std::endl << std::flush;
       if(++received >= 2) {
         socket->close();
