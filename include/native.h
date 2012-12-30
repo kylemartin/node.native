@@ -11,6 +11,7 @@
 
 #include "native/base.h"
 #include "native/detail.h"
+#include "native/internals.h"
 #include "native/process.h"
 #include "native/timers.h"
 #include "native/net.h"

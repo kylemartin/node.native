@@ -86,7 +86,9 @@ namespace native {
 
       // Prepare stdio streams
       prepareStdio();
+      detail::dns::initialize();
   }
+
 #define ENABLE_TTY
 #ifdef ENABLE_TTY
   Stream* createWritableStdioStream(uv_file file) {

@@ -14,10 +14,55 @@ int main(int argc, char** argv) {
     if (argc > 1) {
       hostname = std::string(argv[1]);
     }
-    detail::dns::get_addr_info(hostname, net::SocketType::IPv4, [](const std::vector<std::string>& results) {
-      std::cout << "# results: " << results.size() << std::endl << std::flush;
+    detail::dns::get_addr_info(hostname, net::SocketType::IPv4, [](int status, const std::vector<std::string>& results, int family) {
+      std::cout << "dns::get_addr_info(IPv4)" << std::endl << "# results: " << results.size() << std::endl;
       for (std::string s : results) {
-        std::cout << s << std::endl << std::flush;
+        std::cout << s << std::endl;
+      }
+      std::cout << std::endl << std::flush;
+    });
+
+    detail::dns::get_addr_info(hostname, net::SocketType::IPv6, [](int status, const std::vector<std::string>& results, int family) {
+      std::cout << "dns::get_addr_info(IPv6)" << std::endl << "# results: " << results.size() << std::endl;
+      for (std::string s : results) {
+        std::cout << s << std::endl;
+      }
+      std::cout << std::endl << std::flush;
+    });
+
+    detail::dns::QueryGetHostByName(hostname, AF_INET, [](int status, const std::vector<std::string>& results, int family) {
+      std::cout << "dns::QueryGetHostByName(IPv4)" << std::endl << "# results: " << results.size() << std::endl;
+      for (std::string s : results) {
+        std::cout << s << std::endl;
+      }
+      std::cout << std::endl;
+
+      if (results.size() > 0) {
+        detail::dns::QueryGetHostByAddr(results[0], [](int status, const std::vector<std::string>& results, int family) {
+          std::cout << "dns::QueryGetHostByAddr(IPv4)" << std::endl << "# results: " << results.size() << std::endl;
+          for (std::string s : results) {
+            std::cout << s << std::endl;
+          }
+          std::cout << std::endl;
+        });
+      }
+    });
+
+    detail::dns::QueryGetHostByName(hostname, AF_INET6, [](int status, const std::vector<std::string>& results, int family) {
+      std::cout << "dns::QueryGetHostByName(IPv6)" << std::endl << "# results: " << results.size() << std::endl;
+      for (std::string s : results) {
+        std::cout << s << std::endl;
+      }
+      std::cout << std::endl;
+
+      if (results.size() > 0) {
+        detail::dns::QueryGetHostByAddr(results[0], [](int status, const std::vector<std::string>& results, int family) {
+          std::cout << "dns::QueryGetHostByAddr(IPv6)" << std::endl << "# results: " << results.size() << std::endl;
+          for (std::string s : results) {
+            std::cout << s << std::endl;
+          }
+          std::cout << std::endl;
+        });
       }
     });
   });
