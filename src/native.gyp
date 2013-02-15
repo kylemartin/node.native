@@ -51,7 +51,7 @@
           '../include',
           '../deps/uv/src/ares',
         ],
-      	'libraries': [ '-lboost_regex-mt' ],
+      	'libraries': [ '-lboost_regex' ],
       },
 
       'export_dependent_settings': [

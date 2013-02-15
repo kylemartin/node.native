@@ -168,9 +168,9 @@
       }],
       ['OS=="mac"', {
         'defines': ['_DARWIN_USE_64_BIT_INODE=1'],
-        'include_dirs': ['/sw/include'],
+        'include_dirs': ['/usr/local/include', '/sw/include', '/opt/local/include'],
         'xcode_settings': {
-          'LIBRARY_SEARCH_PATHS': ['/sw/lib', '/opt/local/lib'],
+          'LIBRARY_SEARCH_PATHS': ['/usr/local/lib', '/sw/lib', '/opt/local/lib'],
           'GCC_CC_LANGUAGE_STANDARD': 'gnu++0x',		# enable c++11
           'DISABLE_ARCH': 'YES', 					# XXX don't pass -arch to standard gcc
           'ALWAYS_SEARCH_USER_PATHS': 'NO',
