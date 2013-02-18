@@ -14,6 +14,20 @@ ClientResponse::ClientResponse(net::Socket* socket, Parser* parser) :
 /* Client Request *************************************************************/
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[ClientRequest] " << msg)
+
+void ClientRequest::do_connect(ClientRequest* self, const std::string& host, int port) {
+  DBG("connecting to: " << host << ":" << port);
+
+  net::Socket* socket = net::createSocket();
+
+  // Connect socket
+  assert(socket);
+  socket->connect(host, port);
+  // Setup socket
+  self->init_socket(socket);
+
+}
+
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
     OutgoingMessage(nullptr), method_(HTTP_GET), headers_(),
@@ -27,15 +41,26 @@ ClientRequest::ClientRequest(detail::url_obj url,
   registerEvent<native::event::error>();
 
   int port = url.has_port() ? url.port() : 80;
-  std::string host = url.has_host() ? url.host() : "127.0.0.1"; // "localhost";
+  std::string host = url.has_host() ? url.host() : "localhost";
   DBG("connecting to: " << host << ":" << port);
-  // TODO: resolve hostname
+  // resolve hostname
+
+  if (!detail::dns::is_ip(host)) {
+    detail::dns::QueryGetHostByName(host, [=](int status, const std::vector<std::string>& results, int family){
+      if (results.size()) {
+        DBG("resolved host: " << host << " to: " << results[0]);
+        do_connect(this, results[0], port);
+      } else {
+        DBG("could not resolve host: " << host);
+      }
+    });
+  } else {
+    do_connect(this, host, port);
+  }
 
   if (callback) {
     once<native::event::http::client::response>(callback);
   }
-
-  net::Socket* socket = net::createSocket();
 
   // TODO: set headers
   // TODO: set default host header
@@ -46,11 +71,6 @@ ClientRequest::ClientRequest(detail::url_obj url,
   // TODO: handle unix socket
   // TODO: utilize user agent if provided
   // TODO: utilize user connection method if provided
-  // Connect socket
-  assert(socket);
-  socket->connect(host, port);
-  // Setup socket
-  init_socket(socket);
 
   _deferToConnect([this]() {
     DBG("deferred flush");

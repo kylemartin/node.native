@@ -1,18 +1,18 @@
 # node.native 
 
-<b>node.native</b> is a [C++11](http://en.wikipedia.org/wiki/C%2B%2B11) (aka C++0x) port for [node.js](https://github.com/joyent/node). 
+<b>node.native</b> is a [C++11](http://en.wikipedia.org/wiki/C%2B%2B11) (aka C++0x) framework inspired by [node.js](https://github.com/joyent/node). 
 
 Please note that <b>node.native</b> project is <em>under heavy development</em>: currently experimental.
 
 ## Sample code
 
-Simple echo server:
+Simple echo server (examples/echo.cc):
 
     #include "native.h"
     using namespace native;
     
     int main(int argc, char** argv) {
-        return run([=]() {
+        return process::run([=]() {
             net::createServer([](net::Server* server){
                 server->on<ev::connection>([](net::Socket* socket){
                     socket->pipe(socket, {});
@@ -25,17 +25,25 @@ Simple echo server:
         });
     }
 
+For more examples look in examples directory.
+
 ## Getting started
 
-To compile <b>native.a</b> and sample apps: 
+To compile <b>node.native</b> example apps and tests: 
 
     make
 
-I tested the code on Ubuntu 11.10 and GCC 4.6.1.
+To build debug version:
+
+    build/configure --debug
+
+To specify custom compilers:
+
+    build/configure --cc=gcc-mp-4.7 --cxx=g++-mp-4.7 
+
+The code was tested on OSX 10.6 with GCC 4.7.2 (installed from Fink and Macports).
 
 ## Other Resources
 
+- [GitHub](http://github.com/kyleamartin/node.native)
 - [Mailing list](http://groups.google.com/group/nodenative)
-- [Public to-to lists](https://trello.com/b/1qk3tRGS)
-
-You can also access this page via http://www.nodenative.com.

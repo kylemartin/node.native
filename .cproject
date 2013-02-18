@@ -35,6 +35,9 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.macosx.exe.debug.640519439" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.macosx.exe.debug">
 								<option id="gnu.cpp.compilermacosx.exe.debug.option.optimization.level.1843466242" name="Optimization Level" superClass="gnu.cpp.compilermacosx.exe.debug.option.optimization.level" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.macosx.exe.debug.option.debugging.level.1304989071" name="Debug Level" superClass="gnu.cpp.compiler.macosx.exe.debug.option.debugging.level" value="gnu.cpp.compiler.debugging.level.max" valueType="enumerated"/>
+								<option id="gnu.cpp.compiler.option.include.paths.333917455" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/sw//lib/gcc4.7/include/c++/4.7.2/"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.935344333" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.macosx.exe.debug.1432117527" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.macosx.exe.debug">
@@ -68,7 +71,7 @@
 					<folderInfo id="cdt.managedbuild.config.macosx.exe.release.1828684242." name="/" resourcePath="">
 						<toolChain id="cdt.managedbuild.toolchain.gnu.macosx.exe.release.861748259" name="MacOSX GCC" resourceTypeBasedDiscovery="true" superClass="cdt.managedbuild.toolchain.gnu.macosx.exe.release">
 							<targetPlatform id="cdt.managedbuild.target.gnu.platform.macosx.exe.release.1345662257" name="Debug Platform" superClass="cdt.managedbuild.target.gnu.platform.macosx.exe.release"/>
-							<builder buildPath="${workspace_loc:/node.native/Release}" id="cdt.managedbuild.target.gnu.builder.macosx.exe.release.898629831" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.macosx.exe.release"/>
+							<builder arguments="BUILDTYPE=Release" buildPath="${workspace_loc:/node.native/Release}" command="make" id="cdt.managedbuild.target.gnu.builder.macosx.exe.release.898629831" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="cdt.managedbuild.target.gnu.builder.macosx.exe.release"/>
 							<tool id="cdt.managedbuild.tool.macosx.c.linker.macosx.exe.release.186926515" name="MacOS X C Linker" superClass="cdt.managedbuild.tool.macosx.c.linker.macosx.exe.release"/>
 							<tool id="cdt.managedbuild.tool.macosx.cpp.linker.macosx.exe.release.1477273656" name="MacOS X C++ Linker" superClass="cdt.managedbuild.tool.macosx.cpp.linker.macosx.exe.release">
 								<inputType id="cdt.managedbuild.tool.macosx.cpp.linker.input.72615605" superClass="cdt.managedbuild.tool.macosx.cpp.linker.input">
@@ -83,6 +86,9 @@
 							<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.macosx.exe.release.540078285" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.macosx.exe.release">
 								<option id="gnu.cpp.compiler.macosx.exe.release.option.optimization.level.1066411314" name="Optimization Level" superClass="gnu.cpp.compiler.macosx.exe.release.option.optimization.level" value="gnu.cpp.compiler.optimization.level.most" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.macosx.exe.release.option.debugging.level.453175554" name="Debug Level" superClass="gnu.cpp.compiler.macosx.exe.release.option.debugging.level" value="gnu.cpp.compiler.debugging.level.none" valueType="enumerated"/>
+								<option id="gnu.cpp.compiler.option.include.paths.107616387" superClass="gnu.cpp.compiler.option.include.paths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/sw//lib/gcc4.7/include/c++/4.7.2/"/>
+								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1175635738" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.compiler.macosx.exe.release.2098334286" name="GCC C Compiler" superClass="cdt.managedbuild.tool.gnu.c.compiler.macosx.exe.release">
@@ -111,6 +117,7 @@
 			<resource resourceType="PROJECT" workspacePath="/node.native"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="scannerConfiguration">
 		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
 		<scannerConfigBuildInfo instanceId="cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149;cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149.;cdt.managedbuild.tool.gnu.c.compiler.macosx.exe.debug.1432117527;cdt.managedbuild.tool.gnu.c.compiler.input.59329247">
@@ -121,7 +128,7 @@
 					<parser enabled="true"/>
 				</buildOutputProvider>
 				<scannerInfoProvider id="specsFile">
-					<runAction arguments="-E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;" command="gcc-mp-4.7" useDefault="true"/>
+					<runAction arguments="-E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;" command="gcc-fsf-4.7" useDefault="true"/>
 					<parser enabled="true"/>
 				</scannerInfoProvider>
 			</profile>
@@ -134,7 +141,7 @@
 					<parser enabled="true"/>
 				</buildOutputProvider>
 				<scannerInfoProvider id="specsFile">
-					<runAction arguments="-std=gnu++0x -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;" command="g++-mp-4.7" useDefault="true"/>
+					<runAction arguments="-std=gnu++0x -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;" command="g++-fsf-4.7" useDefault="true"/>
 					<parser enabled="true"/>
 				</scannerInfoProvider>
 			</profile>
@@ -147,7 +154,7 @@
 					<parser enabled="true"/>
 				</buildOutputProvider>
 				<scannerInfoProvider id="specsFile">
-					<runAction arguments="-std=gnu++0x -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;" command="g++-mp-4.7" useDefault="true"/>
+					<runAction arguments="-std=gnu++0x -E -P -v -dD &quot;${plugin_state_location}/specs.cpp&quot;" command="g++-fsf-4.7" useDefault="true"/>
 					<parser enabled="true"/>
 				</scannerInfoProvider>
 			</profile>
@@ -160,11 +167,10 @@
 					<parser enabled="true"/>
 				</buildOutputProvider>
 				<scannerInfoProvider id="specsFile">
-					<runAction arguments="-E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;" command="gcc-mp-4.7" useDefault="true"/>
+					<runAction arguments="-E -P -v -dD &quot;${plugin_state_location}/specs.c&quot;" command="gcc-fsf-4.7" useDefault="true"/>
 					<parser enabled="true"/>
 				</scannerInfoProvider>
 			</profile>
 		</scannerConfigBuildInfo>
 	</storageModule>
-	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 </cproject>

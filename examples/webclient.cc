@@ -9,8 +9,21 @@
 using namespace native;
 
 int main(int argc, char** argv) {
+  std::string host("localhost");
+  int port = 80;
+
+  if (argc > 1) {
+    host = argv[1];
+  }
+  if (argc > 2) {
+    port = std::stoi(argv[2]);
+  }
+
+  std::string url = "";
+  url += "http://" + host + ":" + std::to_string(port) + "/";
+
     return process::run([=]() {
-    	http::ClientRequest* req = http::request("http://127.0.0.1:1337/");
+    	http::ClientRequest* req = http::request(url);
 
     	/**
     	 * WritableStream Events

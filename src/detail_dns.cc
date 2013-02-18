@@ -376,99 +376,93 @@ void QueryWrap::ParseError(int status) {
  assert(0);
 };
 
-//class QueryAWrap: public QueryWrap {
-// public:
-//  int Send(const char* name) {
-//    ares_query(ares_channel, name, ns_c_in, ns_t_a, Callback, GetQueryArg());
-//    return 0;
-//  }
-//
-// protected:
-//  void Parse(unsigned char* buf, int len) {
-//    HandleScope scope;
-//
-//    struct hostent* host;
-//
-//    int status = ares_parse_a_reply(buf, len, &host, NULL, NULL);
-//    if (status != ARES_SUCCESS) {
-//      this->ParseError(status);
-//      return;
-//    }
-//
-//    Local<Array> addresses = HostentToAddresses(host);
-//    ares_free_hostent(host);
-//
-//    this->CallOnComplete(addresses);
-//  }
-//};
-//
-//
-//class QueryAaaaWrap: public QueryWrap {
-// public:
-//  int Send(const char* name) {
-//    ares_query(ares_channel,
-//               name,
-//               ns_c_in,
-//               ns_t_aaaa,
-//               Callback,
-//               GetQueryArg());
-//    return 0;
-//  }
-//
-// protected:
-//  void Parse(unsigned char* buf, int len) {
-//    HandleScope scope;
-//
-//    struct hostent* host;
-//
-//    int status = ares_parse_aaaa_reply(buf, len, &host, NULL, NULL);
-//    if (status != ARES_SUCCESS) {
-//      this->ParseError(status);
-//      return;
-//    }
-//
-//    Local<Array> addresses = HostentToAddresses(host);
-//    ares_free_hostent(host);
-//
-//    this->CallOnComplete(addresses);
-//  }
-//};
-//
-//
-//class QueryCnameWrap: public QueryWrap {
-// public:
-//  int Send(const char* name) {
-//    ares_query(ares_channel,
-//               name,
-//               ns_c_in,
-//               ns_t_cname,
-//               Callback,
-//               GetQueryArg());
-//    return 0;
-//  }
-//
-// protected:
-//  void Parse(unsigned char* buf, int len) {
-//    HandleScope scope;
-//
-//    struct hostent* host;
-//
-//    int status = ares_parse_a_reply(buf, len, &host, NULL, NULL);
-//    if (status != ARES_SUCCESS) {
-//      this->ParseError(status);
-//      return;
-//    }
-//
-//    // A cname lookup always returns a single record but we follow the
-//    // common API here.
-//    Local<Array> result = Array::New(1);
-//    result->Set(0, String::New(host->h_name));
-//    ares_free_hostent(host);
-//
-//    this->CallOnComplete(result);
-//  }
-//};
-//
+class QueryAWrap: public QueryWrap {
+ public:
+  int Send(const char* name) {
+    ares_query(ares_channel, name, ns_c_in, ns_t_a, Callback, GetQueryArg());
+    return 0;
+  }
+
+ protected:
+  void Parse(unsigned char* buf, int len) {
+    struct hostent* host;
+
+    int status = ares_parse_a_reply(buf, len, &host, NULL, NULL);
+    if (status != ARES_SUCCESS) {
+      this->ParseError(status);
+      return;
+    }
+
+    std::vector<std::string> addresses = HostentToAddresses(host);
+    ares_free_hostent(host);
+
+    this->CallOnComplete(addresses);
+  }
+};
+
+
+class QueryAaaaWrap: public QueryWrap {
+ public:
+  int Send(const char* name) {
+    ares_query(ares_channel,
+               name,
+               ns_c_in,
+               ns_t_aaaa,
+               Callback,
+               GetQueryArg());
+    return 0;
+  }
+
+ protected:
+  void Parse(unsigned char* buf, int len) {
+    struct hostent* host;
+
+    int status = ares_parse_aaaa_reply(buf, len, &host, NULL, NULL);
+    if (status != ARES_SUCCESS) {
+      this->ParseError(status);
+      return;
+    }
+
+    std::vector<std::string> addresses = HostentToAddresses(host);
+    ares_free_hostent(host);
+
+    this->CallOnComplete(addresses);
+  }
+};
+
+
+class QueryCnameWrap: public QueryWrap {
+ public:
+  int Send(const char* name) {
+    ares_query(ares_channel,
+               name,
+               ns_c_in,
+               ns_t_cname,
+               Callback,
+               GetQueryArg());
+    return 0;
+  }
+
+ protected:
+  void Parse(unsigned char* buf, int len) {
+    struct hostent* host;
+
+    int status = ares_parse_a_reply(buf, len, &host, NULL, NULL);
+    if (status != ARES_SUCCESS) {
+      this->ParseError(status);
+      return;
+    }
+
+    // A cname lookup always returns a single record but we follow the
+    // common API here.
+    std::vector<std::string> result(1);
+    result[0] = host->h_name;
+    ares_free_hostent(host);
+
+    this->CallOnComplete(result);
+  }
+};
+
 //
 //class QueryMxWrap: public QueryWrap {
 // public:
@@ -479,8 +473,6 @@ void QueryWrap::ParseError(int status) {
 //
 // protected:
 //  void Parse(unsigned char* buf, int len) {
-//    HandleScope scope;
-//
 //    struct ares_mx_reply* mx_start;
 //    int status = ares_parse_mx_reply(buf, len, &mx_start);
 //    if (status != ARES_SUCCESS) {
@@ -506,65 +498,64 @@ void QueryWrap::ParseError(int status) {
 //    this->CallOnComplete(mx_records);
 //  }
 //};
-//
-//
-//class QueryNsWrap: public QueryWrap {
-// public:
-//  int Send(const char* name) {
-//    ares_query(ares_channel, name, ns_c_in, ns_t_ns, Callback, GetQueryArg());
-//    return 0;
-//  }
-//
-// protected:
-//  void Parse(unsigned char* buf, int len) {
-//    struct hostent* host;
-//
-//    int status = ares_parse_ns_reply(buf, len, &host);
-//    if (status != ARES_SUCCESS) {
-//      this->ParseError(status);
-//      return;
-//    }
-//
-//    Local<Array> names = HostentToNames(host);
-//    ares_free_hostent(host);
-//
-//    this->CallOnComplete(names);
-//  }
-//};
-//
-//
-//class QueryTxtWrap: public QueryWrap {
-// public:
-//  int Send(const char* name) {
-//    ares_query(ares_channel, name, ns_c_in, ns_t_txt, Callback, GetQueryArg());
-//    return 0;
-//  }
-//
-// protected:
-//  void Parse(unsigned char* buf, int len) {
-//    struct ares_txt_reply* txt_out;
-//
-//    int status = ares_parse_txt_reply(buf, len, &txt_out);
-//    if (status != ARES_SUCCESS) {
-//      this->ParseError(status);
-//      return;
-//    }
-//
-//    Local<Array> txt_records = Array::New();
-//
-//    struct ares_txt_reply *current = txt_out;
-//    for (int i = 0; current; ++i, current = current->next) {
-//      Local<String> txt = String::New(reinterpret_cast<char*>(current->txt));
-//      txt_records->Set(Integer::New(i), txt);
-//    }
-//
-//    ares_free_data(txt_out);
-//
-//    this->CallOnComplete(txt_records);
-//  }
-//};
-//
-//
+
+
+class QueryNsWrap: public QueryWrap {
+ public:
+  int Send(const char* name) {
+    ares_query(ares_channel, name, ns_c_in, ns_t_ns, Callback, GetQueryArg());
+    return 0;
+  }
+
+ protected:
+  void Parse(unsigned char* buf, int len) {
+    struct hostent* host;
+
+    int status = ares_parse_ns_reply(buf, len, &host);
+    if (status != ARES_SUCCESS) {
+      this->ParseError(status);
+      return;
+    }
+
+    std::vector<std::string> names = HostentToNames(host);
+    ares_free_hostent(host);
+
+    this->CallOnComplete(names);
+  }
+};
+
+
+class QueryTxtWrap: public QueryWrap {
+ public:
+  int Send(const char* name) {
+    ares_query(ares_channel, name, ns_c_in, ns_t_txt, Callback, GetQueryArg());
+    return 0;
+  }
+
+ protected:
+  void Parse(unsigned char* buf, int len) {
+    struct ares_txt_reply* txt_out;
+
+    int status = ares_parse_txt_reply(buf, len, &txt_out);
+    if (status != ARES_SUCCESS) {
+      this->ParseError(status);
+      return;
+    }
+
+    std::vector<std::string> txt_records;
+
+    struct ares_txt_reply *current = txt_out;
+    for (int i = 0; current; ++i, current = current->next) {
+      txt_records.emplace_back(reinterpret_cast<char*>(current->txt));
+    }
+
+    ares_free_data(txt_out);
+
+    this->CallOnComplete(txt_records);
+  }
+};
+
+
 //class QuerySrvWrap: public QueryWrap {
 // public:
 //  int Send(const char* name) {

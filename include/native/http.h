@@ -459,6 +459,8 @@ namespace native
 
       virtual ~ClientRequest() {}
 
+      static void do_connect(ClientRequest* self, const std::string& host, int port);
+
       void abort();
       void setTimeout(int64_t timeout, std::function<void()> callback=nullptr);
       void setNoDelay(bool noDelay);
