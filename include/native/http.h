@@ -129,6 +129,9 @@ namespace native
 
       void add_header(const std::string& name, const std::string& value);
 
+      void prepare_incoming(); // Create an IncomingMessage to collect headers and other info
+      void validate_incoming(); // Check for missing required headers or other invalid info
+
       void reset();
 
     public:

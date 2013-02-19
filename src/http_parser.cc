@@ -178,6 +178,63 @@ void Parser::registerSocketEvents() {
 
 /* Headers ********************************************************************/
 
+void Parser::prepare_incoming() {
+  assert(!incoming_); // Shouldn't be called if already have incoming message
+
+  // Prepare http_start_line and parser state
+  /* Common */
+
+  // HTTP version
+  start_line_.version(parser_.http_major, parser_.http_minor);
+
+  /* Response */
+
+  // HTTP status
+  start_line_.status(parser_.status_code);
+
+  /* Request */
+
+  // TODO: validate host header for incoming HTTP 1.1 requests
+  //  std::string host("");
+  //  int port = 80; // default port
+  //  // HTTP 1.1 requires "Host" header
+  //  if (start_line_.version() == detail::HTTP_1_1) {
+  //    // get host and port info from header entry "Host"
+  //    if (has_header("host")) {
+  //      auto s = get_header("host");
+  //      auto colon = s.find_last_of(':');
+  //      if (colon == s.npos) {
+  //        host = s;
+  //      } else {
+  //        host = s.substr(0, colon);
+  //        port = std::stoi(s.substr(colon + 1));
+  //      }
+  //    }
+  //  }
+
+  // HTTP method
+  start_line_.method(static_cast<http_method>(parser_.method));
+
+  /* Headers */
+
+  // HTTP keep-alive
+  should_keep_alive_ = http_should_keep_alive(&parser_);
+
+  // HTTP upgrade
+  upgrade_ = parser_.upgrade > 0;
+
+  // We must have an IncomingMessage factory function registered
+  // TODO: replace asserts with errors if IncomingMessage factory not registered or fails to create IncomingMessage
+  assert(on_incoming_);
+  // Create a new IncomingMessage
+  incoming_ = on_incoming_(socket_, this);
+  assert(incoming_);
+}
+
+void Parser::validate_incoming() {
+  // TODO: check for missing required headers (like Host) here
+}
+
 /**
  * Add a header to the buffer, flushing if MAX_HEADERS_COUNT reached
  * @param name
@@ -187,54 +244,7 @@ void Parser::registerSocketEvents() {
 void Parser::add_header(const std::string& name, const std::string& value) {
   // If no IncomingMessage created yet
   if (!incoming_) {
-    // Prepare http_start_line and parser state
-    /* Common */
-
-    // HTTP version
-    start_line_.version(parser_.http_major, parser_.http_minor);
-
-    /* Response */
-
-    // HTTP status
-    start_line_.status(parser_.status_code);
-
-    /* Request */
-
-    // TODO: handle host header HTTP 1.1
-    //  std::string host("");
-    //  int port = 80; // default port
-    //  // HTTP 1.1 requires "Host" header
-    //  if (start_line_.version() == detail::HTTP_1_1) {
-    //    // get host and port info from header entry "Host"
-    //    if (has_header("host")) {
-    //      auto s = get_header("host");
-    //      auto colon = s.find_last_of(':');
-    //      if (colon == s.npos) {
-    //        host = s;
-    //      } else {
-    //        host = s.substr(0, colon);
-    //        port = std::stoi(s.substr(colon + 1));
-    //      }
-    //    }
-    //  }
-
-    // HTTP method
-    start_line_.method(static_cast<http_method>(parser_.method));
-
-    /* Headers */
-
-    // HTTP keep-alive
-    should_keep_alive_ = http_should_keep_alive(&parser_);
-
-    // HTTP upgrade
-    upgrade_ = parser_.upgrade > 0;
-
-    // We must have an IncomingMessage factory function registered
-    // TODO: replace asserts with errors if IncomingMessage factory not registered or fails to create IncomingMessage
-    assert(on_incoming_);
-    // Create a new IncomingMessage
-    incoming_ = on_incoming_(socket_, this);
-    assert(incoming_);
+    prepare_incoming();
   }
 
   incoming_->parser_add_header(name, value);
@@ -382,6 +392,11 @@ int Parser::on_headers_complete_(http_parser* parser) {
         self->last_header_value_);
   }
 
+  if (!self->incoming_) {
+    // If we're here without an incoming message then we did not receive any headers
+    self->prepare_incoming(); // Create an incoming message
+    self->validate_incoming(); // Check if required headers missing
+  }
   assert(self->incoming_);
   self->incoming_->parser_on_headers_complete();
 
