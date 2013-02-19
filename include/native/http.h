@@ -438,9 +438,9 @@ namespace native
     class ClientRequest : public OutgoingMessage
     {
     private:
-      http_method method_;
-      headers_type headers_;
       std::string path_;
+      std::string host_;
+      int port_;
 
       listener_t socket_error_listener_;
       listener_t socket_close_listener_;

@@ -22,13 +22,13 @@ int main(int argc, char** argv) {
   std::string url = "";
   url += "http://" + host + ":" + std::to_string(port) + "/";
 
-    return process::run([=]() {
-    	http::ClientRequest* req = http::request(url);
+  return process::run([=]() {
+    http::ClientRequest* req = http::request(url);
 
-    	/**
-    	 * WritableStream Events
-    	 */
-    	req->on<event::drain>([](){
+    /**
+     * WritableStream Events
+     */
+    req->on<event::drain>([](){
 			std::cout << "[req] on drain" << std::endl;
 		});
 		req->on<event::error>([](const Exception& e){

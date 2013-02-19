@@ -30,8 +30,10 @@ void ClientRequest::do_connect(ClientRequest* self, const std::string& host, int
 
 ClientRequest::ClientRequest(detail::url_obj url,
     std::function<void(ClientResponse*)> callback) :
-    OutgoingMessage(nullptr), method_(HTTP_GET), headers_(),
-    path_(url.path_query_fragment()) {
+    OutgoingMessage(nullptr),
+    path_(url.path_query_fragment()),
+    host_(url.has_host() ? url.host() : "localhost"),
+    port_(url.has_port() ? url.port() : 80) {
   DBG("constructing");
   registerEvent<native::event::http::socket>();
   registerEvent<event::connect>();
@@ -40,30 +42,35 @@ ClientRequest::ClientRequest(detail::url_obj url,
   registerEvent<native::event::http::client::response>();
   registerEvent<native::event::error>();
 
-  int port = url.has_port() ? url.port() : 80;
-  std::string host = url.has_host() ? url.host() : "localhost";
-  DBG("connecting to: " << host << ":" << port);
+  DBG("connecting to: " << host_ << ":" << port_);
   // resolve hostname
 
-  if (!detail::dns::is_ip(host)) {
-    detail::dns::QueryGetHostByName(host, [=](int status, const std::vector<std::string>& results, int family){
+  if (!detail::dns::is_ip(host_)) {
+    detail::dns::QueryGetHostByName(host_, [=](int status, const std::vector<std::string>& results, int family){
       if (results.size()) {
-        DBG("resolved host: " << host << " to: " << results[0]);
-        do_connect(this, results[0], port);
+        DBG("resolved host: " << host_ << " to: " << results[0]);
+        do_connect(this, results[0], port_);
       } else {
-        DBG("could not resolve host: " << host);
+        DBG("could not resolve host: " << host_);
       }
     });
   } else {
-    do_connect(this, host, port);
+    do_connect(this, host_, port_);
   }
 
   if (callback) {
     once<native::event::http::client::response>(callback);
   }
 
+  // Set default request method
+  this->method(HTTP_GET);
+
+  // Set default request version
+  this->version(detail::HTTP_1_1);
+
   // TODO: set headers
-  // TODO: set default host header
+  // Set default host header
+  this->add_header("Host",host_ + ":" + std::to_string(port_));
   // TODO: set authorization header if requested
   // TODO: disable chunk encoding by defauult based on method (GET, HEAD, CONNECT)
   // TODO: setup request header based on method and expect header
@@ -102,7 +109,8 @@ void ClientRequest::setSocketKeepAlive(bool enable, int64_t initialDelay) {
 void ClientRequest::_implicitHeader() {
   DBG("sending implicit header");
   _storeHeader(
-      std::string(http_method_str(method_)) + " " + path_ + " HTTP/1.1\r\n",
+      std::string(http_method_str(this->start_line_.method())) + " "
+      + path_ + " " + this->start_line_.version_string() + CRLF,
       _renderHeaders());
 }
 
