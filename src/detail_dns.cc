@@ -25,6 +25,8 @@
 //#include <string.h>
 //
 #define CARES_STATICLIB
+
+#include <string.h>
 #include "ares.h"
 //#include "node.h"
 //#include "req_wrap.h"

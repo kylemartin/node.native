@@ -148,7 +148,7 @@
       }],
       [ 'OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
         'cflags': [ '-Wall', '-pthread', ],
-        'cflags_cc': [ '-fno-rtti', '-fno-exceptions' ],
+        'cflags_cc': [ '-std=gnu++0x' ],
         'ldflags': [ '-pthread', ],
         'conditions': [
           [ 'target_arch=="ia32"', {

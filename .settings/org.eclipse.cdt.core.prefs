@@ -1,10 +1,10 @@
 eclipse.preferences.version=1
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CC/delimiter=\:
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CC/operation=replace
-environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CC/value=gcc-fsf-4.7
+environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CC/value=gcc-4.7
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CXX/delimiter=\:
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CXX/operation=replace
-environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CXX/value=g++-fsf-4.7
+environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/CXX/value=g++-4.7
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/PATH/delimiter=\:
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/PATH/operation=replace
 environment/project/cdt.managedbuild.config.gnu.macosx.exe.debug.1222650149/PATH/value=/opt/local/bin\:/opt/local/sbin\:/sw/bin\:/sw/sbin\:/usr/bin\:/bin\:/usr/sbin\:/sbin\:/usr/local/bin
