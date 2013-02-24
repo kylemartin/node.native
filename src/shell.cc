@@ -29,7 +29,9 @@ shell* shell::create(native::tty::ReadStream* in, native::tty::WriteStream* out)
 }
 
 shell::shell(native::tty::ReadStream* in, native::tty::WriteStream* out)
-: rl_(readline::create(in, out)), prompt_string_("> ") {}
+: cout(process::instance().stdout()), cerr(process::instance().stderr()),
+  rl_(readline::create(in, out)), prompt_string_("> ")
+{}
 
 void shell::add_regex_command(std::string regex,
     regex_command_t callback) {
@@ -61,9 +63,13 @@ void shell::parse_line(const std::string& line) {
 
   for (regex_commands_t::value_type entry : regex_commands_) {
     boost::regex regex(entry.first);
-
-    if (boost::regex_match(line, regex)) {
-      entry.second(line);
+    boost::smatch matches;
+    if (boost::regex_match(line, matches, regex)) {
+      if (matches.size() > 1) {
+        entry.second(matches[1]);
+      } else {
+        entry.second(matches[0]);
+      }
       return;
     }
   }
@@ -134,13 +140,12 @@ void shell::run(std::function<void(const native::Exception&)> callback) {
   });
 }
 
-
-void shell::out(const std::string& text) {
-  process::instance().stdout()->write(Buffer(text), [](){});
-}
-void shell::err(const std::string& text) {
-  process::instance().stderr()->write(Buffer(text), [](){});
-}
+//void shell::out(const std::string& text) {
+//  process::instance().stdout()->write(Buffer(text), [](){});
+//}
+//void shell::err(const std::string& text) {
+//  process::instance().stderr()->write(Buffer(text), [](){});
+//}
 
 }  // namespace native
 

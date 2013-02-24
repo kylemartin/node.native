@@ -50,7 +50,15 @@ int main(int argc, char* argv[]) {
     shell* s =  shell::create();
 
     s->add_command("test", [=](const std::vector<std::string>& args){
-      std::cout << "num args: " << args.size() << std::endl;
+      s->cout << "num args: " << args.size() << std::endl;
+    });
+
+    s->add_regex_command(R"(regex\s+.*)", [=](const std::string& line){
+      s->cout << "line: " << line << std::endl;
+    });
+
+    s->add_regex_command(R"(match\s+(.*))", [=](const std::string& line) {
+      s->cout << "line: " << line << std::endl;
     });
 
     s->run([](const native::Exception& e) {

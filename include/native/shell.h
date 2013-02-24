@@ -16,6 +16,50 @@
 
 namespace native {
 
+// http://stackoverflow.com/a/4367244
+//class shell_ostream {
+//public:
+//  shell_ostream(const shell_ostream& other) : stream_(other.stream_), oss() {}
+//  shell_ostream(native::Stream* stream) : stream_(stream), oss() {}
+//  template <typename T>
+//  shell_ostream& operator<<(const T& output) {
+//    oss << output;
+//    return *this;
+//  }
+//  typedef std::ostream& (*STRFUNC)(std::ostream&);
+//  shell_ostream& operator<<(STRFUNC f) {
+//    f(oss);
+//    return *this;
+//  }
+//  ~shell_ostream() {
+//    stream_->write(Buffer(oss.str()), [](){});
+//  }
+//private:
+//  native::Stream* stream_;
+//  std::ostringstream oss;
+//};
+
+// http://stackoverflow.com/a/2212940
+class shell_ostream : public std::ostream {
+private:
+  class shell_stringbuf : public std::stringbuf {
+  private:
+    native::Stream* stream_;
+  public:
+    shell_stringbuf(native::Stream* stream) : stream_(stream) {}
+
+    virtual int sync() {
+      stream_->write(Buffer(str()), [](){});
+      str("");
+      return 0;
+    }
+  };
+  shell_stringbuf sb_;
+public:
+  shell_ostream(native::Stream* stream) : std::ostream(&sb_), sb_(stream) {}
+};
+
+
 /**
  * A shell manages a tty and number of commands
  */
@@ -32,8 +76,8 @@ public:
 
   void run(std::function<void(const native::Exception&)> callback);
 
-  void out(const std::string& text);
-  void err(const std::string& text);
+//  void out(const std::string& text);
+//  void err(const std::string& text);
 
   void add_command(std::string command,
       simple_command_t callback);
@@ -53,6 +97,16 @@ public:
   void set_prompt(std::string prompt) {
     prompt_string_ = prompt;
   }
+
+//  shell_ostream out() {
+//    return shell_ostream(process::instance().stdout());
+//  }
+//  shell_ostream err() {
+//    return shell_ostream(process::instance().stderr());
+//  }
+
+  shell_ostream cout;
+  shell_ostream cerr;
 
 private:
   std::shared_ptr<native::readline> rl_;
