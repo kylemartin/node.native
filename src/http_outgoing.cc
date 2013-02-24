@@ -34,7 +34,7 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
     chunkedEncoding_(false),
     useChunkedEncodingByDefault_(true),
     sendDate_(false),
-    hasBody_(false),
+    hasBody_(true),
     expectContinue_(false),
     sent100_(false),
     shouldKeepAlive_(false),
