@@ -12,6 +12,11 @@ url_obj::url_obj() :
     handle_(), buf_() {
 }
 
+url_obj::url_obj(const std::string& url) :
+    handle_(), buf_(url) {
+  http_parser_parse_url(buf_.c_str(), buf_.size(), false, &handle_);
+}
+
 url_obj::~url_obj() {
 }
 

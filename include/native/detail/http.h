@@ -13,6 +13,7 @@ namespace detail {
 class url_obj {
 public:
   url_obj();
+  url_obj(const std::string& url);
   ~url_obj();
 
   bool parse(const char* buffer, std::size_t length, bool is_connect = false);
