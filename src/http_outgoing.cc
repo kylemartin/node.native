@@ -101,9 +101,8 @@ CRUMB();
     // TODO: optimize prepending chunk size to Buffer
     std::stringstream ss;
     ss << std::hex << buf.size() << CRLF;
-    this->_send(Buffer(ss.str()));
-    this->_send(buf);
-    this->_send(Buffer(CRLF));
+    this->_send(Buffer(ss.str()).append(buf).append(Buffer(CRLF)));
+
   } else {
 //js:  } else {
 //js:    ret = this._send(chunk, encoding);

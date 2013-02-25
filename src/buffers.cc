@@ -79,11 +79,11 @@ namespace native
     return Buffer(std::vector<char>(data_.begin()+start, data_.begin()+end));
   }
 
-  void Buffer::append(const Buffer& buf) {
+  Buffer& Buffer::append(const Buffer& buf) {
     if (buf.data_.size()) {
-      std::cerr << "appending buf: " << buf.str() << std::endl;
       data_.insert(data_.end(), buf.data_.begin(), buf.data_.end());
     }
+    return *this;
   }
 
   std::string Buffer::str() const { return std::string(base(), size()); }

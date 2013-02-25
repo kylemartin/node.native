@@ -37,7 +37,7 @@ namespace native
 
 		Buffer slice(std::size_t start, std::size_t end);
 
-		void append(const Buffer& c);
+		Buffer& append(const Buffer& c);
 
 		std::string str() const;
 
