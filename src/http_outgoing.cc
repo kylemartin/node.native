@@ -75,7 +75,7 @@ CRUMB();
 //js:    return true;
 //js:  }
   // ignore if this type of response MUST NOT have a body
-  if (this->hasBody_) {
+  if (!this->hasBody_) {
     // TODO: error or ignore and log
     return;
   }
