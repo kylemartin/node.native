@@ -1,4 +1,6 @@
 
+#include <string.h>
+
 #include "native/detail/tcp.h"
 
 namespace native
