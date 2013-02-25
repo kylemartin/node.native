@@ -36,9 +36,9 @@ namespace native
 
             virtual resval read_stop();
 
-            virtual resval write(const char* data, int offset, int length, stream* send_stream=nullptr);
+            virtual resval write(const char* data, int offset, int length, on_complete_callback_type callback = nullptr, stream* send_stream=nullptr);
 
-            virtual resval shutdown();
+            virtual resval shutdown(on_complete_callback_type callback = nullptr);
 
             virtual resval listen(int backlog);
 
@@ -61,7 +61,7 @@ namespace native
             on_connection_callback_type on_connection_;
             on_read_callback_type on_read_;
             on_complete_callback_type on_complete_;
-
+//            on_write_complete_callback_type on_write_complete_;
         };
 
     }

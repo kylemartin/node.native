@@ -66,7 +66,7 @@ CRUMB();
   {
     flags_ |= FLAG_SHUTDOWN;
 
-    stream_->on_complete([&](detail::resval r){
+    detail::resval rv = stream_->shutdown([&](detail::resval r){
       DBG("on complete, shutting down");
       assert(flags_ & FLAG_SHUTDOWN);
       assert(!writable());
@@ -78,7 +78,7 @@ CRUMB();
         destroy();
       }
     });
-    detail::resval rv = stream_->shutdown();
+
     if(!rv)
     {
       destroy(Exception(rv));
@@ -121,7 +121,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
 
   if(!stream_) throw Exception("This socket is closed.");
 
-  stream_->on_complete([=](detail::resval r) {
+  detail::resval rv = stream_->write(buffer.base(), 0, buffer.size(), [=](detail::resval r) {
     if(destroyed_) return;
 
     if(!r)
@@ -136,7 +136,7 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
     pending_write_reqs_--;
     if(pending_write_reqs_ == 0) emit<event::drain>();
 
-    if(callback) callback();
+    if (callback) callback();
 
     if((pending_write_reqs_== 0) && (flags_ & FLAG_DESTROY_SOON))
     {
@@ -144,7 +144,6 @@ bool Socket::write(const Buffer& buffer, std::function<void()> callback)
     }
   });
 
-  detail::resval rv = stream_->write(buffer.base(), 0, buffer.size());
   if(!rv)
   {
     destroy(rv);

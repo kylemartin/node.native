@@ -61,7 +61,7 @@ resval stream::read_stop() {
   return run_(uv_read_stop, stream_);
 }
 
-resval stream::write(const char* data, int offset, int length,
+resval stream::write(const char* data, int offset, int length, on_complete_callback_type callback,
     stream* send_stream) {
   bool res = false;
   bool ipc_pipe = stream_->type == UV_NAMED_PIPE
@@ -74,22 +74,31 @@ resval stream::write(const char* data, int offset, int length,
   buf.base = const_cast<char*>(&data[offset]);
   buf.len = static_cast<size_t>(length);
 
+  // Store write callback id with uv request
+  if (callback) req->data = new on_complete_callback_type(callback);
+
   if (ipc_pipe) {
     res = uv_write2(req, stream_, &buf, 1,
         send_stream ? send_stream->uv_stream() : nullptr,
         [](uv_write_t* req, int status) {
           auto self = reinterpret_cast<stream*>(req->handle->data);
+          auto callback = req->data ? reinterpret_cast<on_complete_callback_type*>(req->data) : nullptr;
           assert(self);
-          if (self->on_complete_)
-          self->on_complete_(status?get_last_error():resval());
+          if (callback) {
+            (*callback)(status?get_last_error():resval());
+            delete callback;
+          }
           if (req) delete req;
         }) == 0;
   } else {
-    res = uv_write(req, stream_, &buf, 1, [](uv_write_t* req, int status) {
+    res = uv_write(req, stream_, &buf, 1, [=](uv_write_t* req, int status) {
       auto self = reinterpret_cast<stream*>(req->handle->data);
+      auto callback = req->data ? reinterpret_cast<on_complete_callback_type*>(req->data) : nullptr;
       assert(self);
-      if (self->on_complete_)
-      self->on_complete_(status?get_last_error():resval());
+      if (callback) {
+        (*callback)(status?get_last_error():resval());
+        delete callback;
+      }
       if (req) delete req;
     }) == 0;
   }
@@ -99,15 +108,23 @@ resval stream::write(const char* data, int offset, int length,
   return res ? resval() : get_last_error();
 }
 
-resval stream::shutdown() {
+resval stream::shutdown(on_complete_callback_type callback) {
   auto req = new uv_shutdown_t;
   assert(req);
 
+  // Store write callback id with uv request
+  if (callback) req->data = new on_complete_callback_type(callback);
+
   bool res = uv_shutdown(req, stream_, [](uv_shutdown_t* req, int status) {
     auto self = reinterpret_cast<stream*>(req->handle->data);
+    auto callback = req->data ? reinterpret_cast<on_complete_callback_type*>(req->data) : nullptr;
     assert(self);
-    if (self->on_complete_)
-    self->on_complete_(status?get_last_error():resval());
+    if (callback) {
+      (*callback)(status?get_last_error():resval());
+      delete callback;
+    }
+//    if (self->on_complete_)
+//    self->on_complete_(status?get_last_error():resval());
     delete req;
   }) == 0;
 
