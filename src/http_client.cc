@@ -8,7 +8,7 @@ namespace http {
 #define DBG(msg) DEBUG_PRINT("[ClientResponse] " << msg)
 ClientResponse::ClientResponse(net::Socket* socket, Parser* parser) :
     IncomingMessage(socket, parser) {
-  DBG("constructing");
+CRUMB();
 }
 
 /* Client Request *************************************************************/
@@ -34,15 +34,14 @@ ClientRequest::ClientRequest(detail::url_obj url,
     path_(url.path_query_fragment()),
     host_(url.has_host() ? url.host() : "localhost"),
     port_(url.has_port() ? url.port() : 80) {
-  DBG("constructing");
-  registerEvent<native::event::http::socket>();
+CRUMB();
   registerEvent<event::connect>();
   registerEvent<native::event::http::client::upgrade>();
+  registerEvent<native::event::http::socket>();
   registerEvent<native::event::http::Continue>();
   registerEvent<native::event::http::client::response>();
   registerEvent<native::event::error>();
 
-  DBG("connecting to: " << host_ << ":" << port_);
   // resolve hostname
 
   if (!detail::dns::is_ip(host_)) {
@@ -80,20 +79,18 @@ ClientRequest::ClientRequest(detail::url_obj url,
   // TODO: utilize user connection method if provided
 
   _deferToConnect([this]() {
-    DBG("deferred flush");
     _flush(); // flush output once connected
     });
 }
 
 void ClientRequest::abort() {
-  DBG("abort");
+CRUMB();
   if (socket_) { // in-progress
     socket_->destroy();
   } else {
     // not yet assigned a socket
     // TODO: remove from pending requests
     _deferToConnect([this]() {
-      DBG("deferred destroy");
       socket_->destroy();
     });
   }
@@ -107,15 +104,15 @@ void ClientRequest::setSocketKeepAlive(bool enable, int64_t initialDelay) {
 }
 
 void ClientRequest::_implicitHeader() {
-  DBG("sending implicit header");
   _storeHeader(
       std::string(http_method_str(this->start_line_.method())) + " "
       + path_ + " " + this->start_line_.version_string() + CRLF,
       _renderHeaders());
+CRUMB();
 }
 
 void ClientRequest::_deferToConnect(std::function<void()> callback) {
-  DBG("defer to connect");
+CRUMB();
   /*
    * Right now the socket is created when the request is constructed, but in the
    * future it may be assigned from a pool, and the request will be queued, so
@@ -237,7 +234,6 @@ void ClientRequest::init_socket(net::Socket* socket) {
     // set on incoming callback on parser
     parser->register_on_incoming([=](net::Socket* socket,
         Parser* parser) {
-          DBG("constructing ClientResponse for parser");
           IncomingMessage* result = new ClientResponse(socket, parser);
           this->on_incoming_message(result);
           return result;
@@ -250,7 +246,7 @@ void ClientRequest::init_socket(net::Socket* socket) {
 }
 
 void ClientRequest::on_incoming_message(IncomingMessage* msg) {
-  DBG("handling incoming message");
+CRUMB();
   ClientResponse* res = static_cast<ClientResponse*>(msg);
   net::Socket* socket = res->socket();
 
@@ -263,6 +259,8 @@ void ClientRequest::on_incoming_message(IncomingMessage* msg) {
 //js:              req.res = res;
   // if already created response then server sent double response
   if (this->received_response_) {
+    // TODO: throw error on double response
+    DBG("Received double response");
     // destroy socket on double response
     socket->destroy();
   }
@@ -337,12 +335,12 @@ void ClientRequest::on_response_end() {
   // TODO: handle keep-alive after response end
   if (!this->shouldKeepAlive_) {
     if (this->socket_->writable()) {
-      DBG("AGENT socket.destroySoon()");
+//      DBG("AGENT socket.destroySoon()");
       this->socket_->destroySoon();
     }
     assert(!this->socket_->writable());
   } else {
-    DBG("AGENT socket keep-alive");
+//    DBG("AGENT socket keep-alive");
     this->socket_->removeListener<event::close>(socket_close_listener_);
     this->socket_->removeListener<event::error>(socket_error_listener_);
     this->socket_->emit<native::event::free>();

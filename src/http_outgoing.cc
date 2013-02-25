@@ -46,7 +46,7 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
     header_(),
     headerSent_(false)
 {
-  DBG("constructing");
+CRUMB();
 
   // WritableStream event interface
   registerEvent<native::event::drain>();
@@ -59,7 +59,7 @@ OutgoingMessage::OutgoingMessage(net::Socket* socket_)
 
 // TODO: handle encoding
 void OutgoingMessage::write(const Buffer& buf) {
-DBG("writing");
+CRUMB();
 
 //js:  if (!this._header) {
 //js:    this._implicitHeader();
@@ -130,7 +130,8 @@ void OutgoingMessage::end()
  * @return
  */
 void OutgoingMessage::end(const Buffer& buf) {
-  DBG("end");
+CRUMB();
+
 //        assert(socket_);
 //
 //        if(socket_->end(buf))
@@ -261,7 +262,7 @@ void OutgoingMessage::end(const Buffer& buf) {
 }
 
 void OutgoingMessage::destroy(const Exception& e) {
-  DBG("destroy");
+CRUMB();
   socket_->destroy(e);
 }
 
@@ -360,7 +361,7 @@ void OutgoingMessage::remove_trailer(const std::string& name) {
 }
 
 void OutgoingMessage::_storeHeader(const std::string& firstLine, const headers_type& headers) {
-  DBG("_storeHeader");
+CRUMB();
   bool sentConnectionHeader = false;
   bool sentContentLengthHeader = false;
   bool sentTransferEncodingHeader = false;
@@ -527,6 +528,7 @@ void OutgoingMessage::_send(const Buffer& buf) {
 
 // TODO: handle encoding
 void OutgoingMessage::_writeRaw(const Buffer& buf) {
+  DBG("writing:\n" << buf.str());
 //js:  if (data.length === 0) {
 //js:    return true;
 //js:  }

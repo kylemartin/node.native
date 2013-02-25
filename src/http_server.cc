@@ -11,7 +11,7 @@ ServerRequest::ServerRequest(net::Socket* socket, Parser* parser)
 : IncomingMessage(socket, parser) // TODO: use move constructor
 , server_(nullptr)
 {
-  DBG("constructing");
+  CRUMB();
 }
 
 void ServerRequest::server(Server* server) {
@@ -28,7 +28,7 @@ void ServerRequest::parser_on_headers_complete() {
   assert(res);
 
   res->on<native::event::http::finish>([=](){
-    DBG("response finished, ending socket");
+    // response finished, ending socket
     socket_->end();
   });
 
@@ -43,7 +43,7 @@ void ServerRequest::parser_on_headers_complete() {
 ServerResponse::ServerResponse(net::Socket* socket)
     : OutgoingMessage(socket)
 {
-  DBG("constructing");
+  CRUMB();
     assert(socket_);
 
     socket_->on<native::event::close>([this](){ emit<native::event::close>(); });
@@ -56,7 +56,7 @@ void ServerResponse::_implicitHeader() {
 };
 
 void ServerResponse::writeContinue() {
-  DBG("writing continue");
+  CRUMB();
 
 //  this._writeRaw('HTTP/1.1 100 Continue' + CRLF + CRLF, 'ascii');
 //  this._sent100 = true;
@@ -70,7 +70,7 @@ void ServerResponse::writeHead(int statusCode, const headers_type& given_headers
 void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPhrase
     , const headers_type& given_headers)
 {
-  DBG("writing headers");
+CRUMB();
 
   std::string reasonPhrase(!given_reasonPhrase.empty()
       ? given_reasonPhrase : detail::http_status_text(statusCode));
@@ -115,7 +115,7 @@ void ServerResponse::writeHead(int statusCode, const std::string& given_reasonPh
 Server::Server()
     : net::Server()
 {
-  DBG("constructing");
+CRUMB();
     registerEvent<native::event::http::server::request>();
     registerEvent<native::event::http::server::checkContinue>();
     registerEvent<native::event::http::server::upgrade>();
@@ -133,7 +133,7 @@ Server::Server()
 }
 
 void Server::on_connection(net::Socket* socket) {
-  DBG("on connection");
+CRUMB();
     assert(socket);
 
     // Create a Parser to handle incoming message
@@ -220,7 +220,7 @@ void Server::on_connection(net::Socket* socket) {
  * completion events on, and create ServerResponse and emit for users to write
  */
 IncomingMessage* Server::on_incoming(net::Socket* socket, Parser* parser) {
-  DBG("creating ServerRequest for Parser");
+  CRUMB();
   // Create ServerRequest
   ServerRequest* req = new ServerRequest(socket, parser);
   assert(req);

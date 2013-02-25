@@ -14,20 +14,29 @@
 #include <tuple>
 #include <iostream>
 
+#if !defined(__PRETTY_FUNCTION__)
+#define __PRETTY_FUNCTION__ __FUNCTION__
+#endif
+
 #if defined(DEBUG)
 
 #define DEBUG_PRINT(msg) do { std::cerr << __FILE__ << ":" << __LINE__ << "> " << msg << std::endl << std::flush;  } while(0);
 #define DBG(msg) DEBUG_PRINT(msg)
-#define CRUMB() DBG(__FUNCTION__)
 #define TRACE(exp) DBG(#exp) exp;
 
 #else
 #define DEBUG_PRINT(msg)
 #define DBG(msg)
-#define CRUMB()
 #define TRACE(exp) exp;
 #endif
 
+//#define DEBUG_CRUMB
+
+#if defined(DEBUG_CRUMB)
+#define CRUMB() DBG(__PRETTY_FUNCTION__)
+#else
+#define CRUMB()
+#endif
 
 #ifndef offset_of
 // g++ in strict mode complains loudly about the system offsetof() macro

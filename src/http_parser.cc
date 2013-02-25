@@ -29,7 +29,7 @@ Parser* Parser::create(
     net::Socket* socket,
     on_incoming_type incoming_cb)
 {
-  DBG("creating parser");
+CRUMB();
   Parser* parser(new Parser(type, socket));
 
   if (incoming_cb) parser->register_on_incoming(incoming_cb);
@@ -98,7 +98,7 @@ Parser::Parser(http_parser_type type, net::Socket* socket)
 , error_()
 , parsing_(false)
 {
-  DBG("constructing parser");
+CRUMB();
 
   registerSocketEvents();
 
@@ -121,26 +121,21 @@ Parser::~Parser() {
 void Parser::registerSocketEvents() {
   // Register net::Socket event handlers
   socket_->on<native::event::data>([=](const Buffer& buf) {
-    DBG("socket data");
       if(feed_data(buf.base(), 0, buf.size()))
       {
-        DBG("parsing finished, pausing socket");
         // parse end
         socket_->pause();
       }
       else
       {
-        DBG("parsing not finished, continue reading socket");
         // more reads required: keep reading!
       }
   });
 
   socket_->on<native::event::end>([=](){
-    DBG("socket end");
     // EOF
     if(parsing())
     {
-      DBG("socket end before parsing finished");
       // HTTP request was not properly parsed.
 //      emit<event::error>(Exception("socket end before parsing finished"));
       on_close_();
@@ -149,16 +144,13 @@ void Parser::registerSocketEvents() {
   });
 
   socket_->on<native::event::error>([=](const native::Exception& e){
-    DBG("socket error");
     on_error_(e);
   });
 
   socket_->on<native::event::close>([=](){
-    DBG("socket close");
     // EOF
     if(parsing())
     {
-      DBG("socket close before parsing finished");
       // HTTP request was not properly parsed.
       on_error_(Exception("socket close before parsing finished"));
     }
@@ -440,21 +432,21 @@ int Parser::on_message_complete_(http_parser* parser) {
 /* Events *********************************************************************/
 
 int Parser::on_error(const native::Exception& e) {
-  DBG("error");
+CRUMB();
   if (incoming_) incoming_->parser_on_error(e);
   else on_error_(e);
   return 0;
 }
 
 int Parser::on_body(const char* buf, size_t off, size_t len) {
-  DBG("body");
+CRUMB();
   assert(incoming_);
   incoming_->parser_on_body(Buffer(buf+off,len));
   return 0;
 }
 
 int Parser::on_message_complete() {
-  DBG("message complete");
+CRUMB();
   assert(incoming_);
   incoming_->end();
   return 0;
