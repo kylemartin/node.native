@@ -187,7 +187,7 @@ std::shared_ptr<net_addr> udp::get_sock_name() {
 
   if(uv_udp_getsockname(&udp_, reinterpret_cast<struct sockaddr*>(&addr), &addrlen) == 0)
   {
-      return get_net_addr(reinterpret_cast<const sockaddr*>(&addr));
+      return get_net_addr(reinterpret_cast<sockaddr*>(&addr));
   }
 
   return nullptr;

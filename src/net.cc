@@ -67,7 +67,6 @@ CRUMB();
     flags_ |= FLAG_SHUTDOWN;
 
     detail::resval rv = stream_->shutdown([&](detail::resval r){
-      DBG("on complete, shutting down");
       assert(flags_ & FLAG_SHUTDOWN);
       assert(!writable());
 

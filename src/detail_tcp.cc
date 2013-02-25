@@ -19,11 +19,12 @@ namespace detail
   std::shared_ptr<net_addr> tcp::get_sock_name()
   {
       struct sockaddr_storage addr;
-      int addrlen = static_cast<int>(sizeof(addr));
+      memset(&addr,-1,sizeof addr);
+      int addrlen = sizeof addr;
 
-      if(uv_tcp_getsockname(&tcp_, reinterpret_cast<struct sockaddr*>(&addr), &addrlen) == 0)
+      if(uv_tcp_getsockname(&tcp_, reinterpret_cast<sockaddr*>(&addr), &addrlen) == 0)
       {
-        return get_net_addr(reinterpret_cast<const sockaddr*>(&addr));
+        return get_net_addr(reinterpret_cast<sockaddr*>(&addr));
       }
 
       return nullptr;
@@ -32,11 +33,12 @@ namespace detail
   std::shared_ptr<net_addr> tcp::get_peer_name()
   {
       struct sockaddr_storage addr;
-      int addrlen = static_cast<int>(sizeof(addr));
+      memset(&addr,-1,sizeof addr);
+      int addrlen = sizeof addr;
 
-      if(uv_tcp_getsockname(&tcp_, reinterpret_cast<struct sockaddr*>(&addr), &addrlen) == 0)
+      if(uv_tcp_getpeername(&tcp_, reinterpret_cast<sockaddr*>(&addr), &addrlen) == 0)
       {
-        return get_net_addr(reinterpret_cast<const sockaddr*>(&addr));
+        return get_net_addr(reinterpret_cast<sockaddr*>(&addr));
       }
 
       return nullptr;

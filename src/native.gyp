@@ -8,6 +8,7 @@
       'type': 'static_library',
 
       'sources': [
+        'detail_base.cc',
         'detail_handle.cc',
         'detail_signal.cc',
         'detail_pipe.cc',
