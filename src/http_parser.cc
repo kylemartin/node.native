@@ -137,7 +137,7 @@ void Parser::registerSocketEvents() {
     if(parsing())
     {
       // HTTP request was not properly parsed.
-//      emit<event::error>(Exception("socket end before parsing finished"));
+      on_error_(Exception("socket end before parsing finished"));
       on_close_();
     }
     on_end_();
@@ -157,15 +157,15 @@ void Parser::registerSocketEvents() {
     on_close_();
   });
 
-  socket_->on<event::connect>([=]() {
-    DBG("socket connect");
-  });
-  socket_->on<event::timeout>([=](){
-    DBG("socket timeout");
-  });
-  socket_->on<event::drain>([=](){
-    DBG("socket drain");
-  });
+//  socket_->on<event::connect>([=]() {
+//    DBG("socket connect");
+//  });
+//  socket_->on<event::timeout>([=](){
+//    DBG("socket timeout");
+//  });
+//  socket_->on<event::drain>([=](){
+//    DBG("socket drain");
+//  });
 }
 
 /* Headers ********************************************************************/

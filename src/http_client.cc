@@ -15,17 +15,17 @@ CRUMB();
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[ClientRequest] " << msg)
 
-void ClientRequest::do_connect(ClientRequest* self, const std::string& host, int port) {
-  DBG("connecting to: " << host << ":" << port);
+void ClientRequest::do_connect(const std::string& host) {
+  ClientRequest* self = this;
+  DBG("client connecting to: " << self->host_ << "(" << host << ")" << ":" << self->port_);
 
   net::Socket* socket = net::createSocket();
 
   // Connect socket
   assert(socket);
-  socket->connect(host, port);
+  socket->connect(host, self->port_);
   // Setup socket
   self->init_socket(socket);
-
 }
 
 ClientRequest::ClientRequest(detail::url_obj url,
@@ -35,26 +35,37 @@ ClientRequest::ClientRequest(detail::url_obj url,
     host_(url.has_host() ? url.host() : "localhost"),
     port_(url.has_port() ? url.port() : 80) {
 CRUMB();
+
+  //////////////////////////////////////////////////
+  // Events inherited from OutgoingMessage
+  //  // WritableStream event interface
+  //  registerEvent<native::event::drain>();
+  //  registerEvent<native::event::error>();
+  //  registerEvent<native::event::close>();
+  //  registerEvent<native::event::pipe>();
+  //
+  //  registerEvent<native::event::http::finish>();
+  //////////////////////////////////////////////////
+
   registerEvent<event::connect>();
-  registerEvent<native::event::http::client::upgrade>();
   registerEvent<native::event::http::socket>();
   registerEvent<native::event::http::Continue>();
+  registerEvent<native::event::http::client::upgrade>();
   registerEvent<native::event::http::client::response>();
-  registerEvent<native::event::error>();
 
   // resolve hostname
 
   if (!detail::dns::is_ip(host_)) {
     detail::dns::QueryGetHostByName(host_, [=](int status, const std::vector<std::string>& results, int family){
       if (results.size()) {
-        DBG("resolved host: " << host_ << " to: " << results[0]);
-        do_connect(this, results[0], port_);
+        DBG("client resolved host: " << host_ << " to: " << results[0]);
+        do_connect(results[0]);
       } else {
-        DBG("could not resolve host: " << host_);
+        DBG("client could not resolve host: " << host_);
       }
     });
   } else {
-    do_connect(this, host_, port_);
+    do_connect(host_);
   }
 
   if (callback) {
@@ -104,11 +115,12 @@ void ClientRequest::setSocketKeepAlive(bool enable, int64_t initialDelay) {
 }
 
 void ClientRequest::_implicitHeader() {
-  _storeHeader(
-      std::string(http_method_str(this->start_line_.method())) + " "
-      + path_ + " " + this->start_line_.version_string() + CRLF,
-      _renderHeaders());
 CRUMB();
+  //TODO: optimize request line construction
+  std::stringstream ss;
+  ss << http_method_str(this->start_line_.method()) << " "
+      << path_ << " " << this->start_line_.version_string() << CRLF;
+  _storeHeader(ss.str(), _renderHeaders());
 }
 
 void ClientRequest::_deferToConnect(std::function<void()> callback) {
@@ -201,8 +213,7 @@ void ClientRequest::init_socket(net::Socket* socket) {
 //js:    });
 //js:
 //js:  };
-  process::nextTick([=]() {
-    DBG("initializing socket");
+  process::nextTick([=](){
     socket_ = socket;
     // TODO: check if allocated Parser is leaking
     Parser* parser = Parser::create(HTTP_RESPONSE, socket_);
@@ -221,15 +232,15 @@ void ClientRequest::init_socket(net::Socket* socket) {
     socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
           this->on_socket_error(e);
         });
-    socket_->on<native::event::data>([this](const Buffer& buf) {
-          this->on_socket_data(buf);
-        });
-    socket_->on<native::event::end>([this]() {
-          this->on_socket_end();
-        });
-    socket_close_listener_ = socket_->on<native::event::close>([this]() {
-          this->on_socket_close();
-        });
+//    socket_->on<native::event::data>([this](const Buffer& buf) {
+//          this->on_socket_data(buf);
+//        });
+//    socket_->on<native::event::end>([this]() {
+//          this->on_socket_end();
+//        });
+//    socket_close_listener_ = socket_->on<native::event::close>([this]() {
+//          this->on_socket_close();
+//        });
 
     // set on incoming callback on parser
     parser->register_on_incoming([=](net::Socket* socket,
@@ -237,8 +248,19 @@ void ClientRequest::init_socket(net::Socket* socket) {
           IncomingMessage* result = new ClientResponse(socket, parser);
           this->on_incoming_message(result);
           return result;
-
         });
+
+    parser->register_on_error([=](const Exception& e) {
+      emit<event::error>(e);
+    });
+
+    parser->register_on_close([this]() {
+      emit<event::error>(Exception("Parser closed before ClientResponse constructed"));
+    });
+
+    parser->register_on_end([this]() {
+      emit<event::error>(Exception("Parser end before ClientResponse constructed"));
+    });
 
     // Emit socket event
     emit<native::event::http::socket>(socket_);
