@@ -1,3 +1,15 @@
+/**
+@class udp
+
+# Events #
+## Emitted ##
+native::event::udp::message
+native::event::listening
+native::event::close
+native::event::error
+## Registered ##
+ */
+
 #include "native/udp.h"
 #include "native/detail/buffers.h"
 #include "native/error.h"

@@ -47,7 +47,7 @@ namespace native
     protected:
         void writable(bool b);
         void readable(bool b);
-
+        void emit_pipe(Stream* source);
     private:
         struct pipe_context
         {

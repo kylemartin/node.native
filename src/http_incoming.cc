@@ -1,4 +1,19 @@
 
+/**
+@class IncomingMessage
+
+# Events #
+
+## Emitted ##
+native::event::data
+native::event::end
+native::event::error
+
+## Registered ##
+native::event::close
+native::event::http::headers
+native::event::http::trailers
+ */
 #include "native/http.h"
 
 namespace native {

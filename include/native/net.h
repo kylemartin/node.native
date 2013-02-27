@@ -265,6 +265,8 @@ private:
   void on_read(const char* buffer, std::size_t offset, std::size_t length,
       detail::resval rv);
 
+  void emit_connect();
+
 private:
   int socket_type_;
 
@@ -348,8 +350,8 @@ public:
   std::string pipe_name_;
 };
 
-Server* createServer(std::function<void(Server*)> callback, bool allowHalfOpen =
-    false);
+Server* createServer(std::function<void(Server*)> callback = nullptr,
+    bool allowHalfOpen = false);
 
 Socket* createSocket(std::function<void(Socket*)> callback = nullptr,
     bool allowHalfOpen = false);

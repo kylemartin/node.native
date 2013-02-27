@@ -413,6 +413,8 @@ namespace native
         void on_connection(net::Socket* socket);
 
         IncomingMessage* on_incoming(net::Socket* socket, Parser* parser);
+
+        void emit_request(ServerRequest* req, ServerResponse* res);
     };
 
     /**

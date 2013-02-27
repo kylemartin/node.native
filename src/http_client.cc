@@ -1,3 +1,31 @@
+/**
+@class ClientResponse
+
+# Events #
+
+## Emitted ##
+## Registered ##
+
+ */
+
+/**
+@class ClientRequest
+
+# Events #
+
+## Emitted ##
+native::event::error
+native::event::http::socket
+native::event::http::client::response
+native::event::connect
+
+## Registered ##
+
+native::event::http::Continue
+native::event::http::client::upgrade
+
+ */
+
 #include "native/http.h"
 
 namespace native {
@@ -365,7 +393,8 @@ void ClientRequest::on_response_end() {
 //    DBG("AGENT socket keep-alive");
     this->socket_->removeListener<event::close>(socket_close_listener_);
     this->socket_->removeListener<event::error>(socket_error_listener_);
-    this->socket_->emit<native::event::free>();
+    // TODO setup socket pooling
+//    this->socket_->emit<native::event::free>();
   }
 }
 

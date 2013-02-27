@@ -1,4 +1,19 @@
 
+
+/**
+@class OutgoingMessage
+
+# Events #
+## Emitted ##
+native::event::http::finish
+native::event::drain
+
+## Registered ##
+native::event::close
+native::event::error
+native::event::pipe
+ */
+
 #include <regex>
 #include <ctime>
 

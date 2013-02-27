@@ -5,6 +5,14 @@
  *      Author: kmartin
  */
 
+/**
+@class Stream
+
+# Events Emitted #
+native::event::pipe
+
+ */
+
 #include "native/stream.h"
 
 namespace native {
@@ -13,14 +21,14 @@ using detail::Buffer;
 Stream::Stream(detail::stream* stream, bool readable, bool writable) :
     EventEmitter(), stream_(stream), readable_(readable), writable_(writable), is_stdio_(
         false), pipe_() {
-  if (readable_)
-    registerEvent<event::data>();
-  if (readable_)
-    registerEvent<event::end>();
-  registerEvent<event::error>();
-  registerEvent<event::close>();
-  if (writable_)
-    registerEvent<event::drain>();
+//  if (readable_)
+//    registerEvent<event::data>();
+//  if (readable_)
+//    registerEvent<event::end>();
+//  registerEvent<event::error>();
+//  registerEvent<event::close>();
+//  if (writable_)
+//    registerEvent<event::drain>();
   if (writable_)
     registerEvent<event::pipe>();
 }
@@ -71,6 +79,10 @@ void Stream::readable(bool b) {
   readable_ = b;
 }
 
+void Stream::emit_pipe(Stream* source) {
+  emit<event::pipe>(source);
+}
+
 Stream::pipe_context::pipe_context(Stream* source, Stream* destination,
     const util::dict& options) :
     source_(source), destination_(destination), did_on_end_(false), pipe_count_(
@@ -110,7 +122,7 @@ Stream::pipe_context::pipe_context(Stream* source, Stream* destination,
   dest_on_end_clenaup_ = destination_->on<event::end>([&]() {cleanup();});
   dest_on_close_clenaup_ = destination_->on<event::close>([&]() {cleanup();});
 
-  destination_->emit<event::pipe>(source_);
+  destination_->emit_pipe(source_);
 }
 
 void Stream::pipe_context::on_error(const Exception& exception) {

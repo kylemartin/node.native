@@ -1,4 +1,28 @@
 
+/**
+@class Socket
+
+# Events Emitted #
+native::event::drain
+native::event::connect
+native::event::close
+native::event::error
+native::event::data
+native::event::end
+
+internal_destroy_event
+ */
+
+/**
+@class Server
+
+# Events Emitted #
+native::event::close
+native::event::error
+native::event::connection
+native::event::listening
+ */
+
 #include "native/net.h"
 
 namespace native {
@@ -530,6 +554,10 @@ void Socket::on_read(const char* buffer, std::size_t offset, std::size_t length,
   }
 }
 
+void Socket::emit_connect() {
+  emit<event::connect>();
+}
+
 #undef DBG
 #define DBG(msg) DEBUG_PRINT("[net::Server] " << msg)
 Server::Server(bool allowHalfOpen)
@@ -619,7 +647,7 @@ void Server::emitCloseIfDrained()
 CRUMB();
   if(stream_ || connections_) return;
 
-  process::nextTick([&](){ DBG("emitting close if drained"); emit<event::close>(); });
+  process::nextTick([&](){ emit<event::close>(); });
 }
 
 detail::stream* Server::create_server_handle(const std::string& ip_or_pipe_name, int port)
@@ -705,7 +733,6 @@ CRUMB();
       assert(socket);
 
       socket->once<Socket::internal_destroy_event>([&](){
-        DBG("internal_destroy_event");
         connections_--;
         emitCloseIfDrained();
       });
@@ -714,7 +741,7 @@ CRUMB();
       connections_++;
       emit<event::connection>(socket);
 
-      socket->emit<event::connect>();
+      socket->emit_connect();
     }
   });
 
@@ -754,9 +781,11 @@ Server* createServer(std::function<void(Server*)> callback, bool allowHalfOpen)
   auto x = new Server(allowHalfOpen);
   assert(x);
 
-  process::nextTick([=](){
-    callback(x);
-  });
+  if (callback) {
+    process::nextTick([=](){
+      callback(x);
+    });
+  }
 
   return x;
 }

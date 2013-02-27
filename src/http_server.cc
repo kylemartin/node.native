@@ -1,4 +1,41 @@
 
+/**
+@class ServerRequest
+
+# Events #
+## Emitted ##
+## Registered ##
+
+ */
+
+/**
+@class ServerResponse
+
+# Events #
+
+## Emitted ##
+native::event::close
+native::event::error
+
+## Registered ##
+
+ */
+
+/**
+@class Server
+
+# Events #
+
+## Emitted ##
+native::event::http::server::request
+
+## Regsitered ##
+
+native::event::http::server::checkContinue
+native::event::http::server::upgrade
+native::event::connect
+native::event::clientError
+ */
 #include "native/http.h"
 
 namespace native { namespace http {
@@ -33,7 +70,7 @@ void ServerRequest::parser_on_headers_complete() {
   });
 
   // Pass request and response to listener
-  server_->emit<native::event::http::server::request>(this, res);
+  server_->emit_request(this, res);
 }
 
 /* ServerResponse *************************************************************/
@@ -227,6 +264,10 @@ IncomingMessage* Server::on_incoming(net::Socket* socket, Parser* parser) {
   req->server(this);
 
   return req;
+}
+
+void Server::emit_request(ServerRequest* req, ServerResponse* res) {
+  emit<native::event::http::server::request>(req, res);
 }
 
 Server* createServer()
