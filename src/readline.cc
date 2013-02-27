@@ -271,7 +271,7 @@ namespace native
 		}
 
 		std::string readline::get_prompt() {
-		  return std::to_string(history.size()) + ":" + std::to_string(history_index) + prompt;
+		  return prompt;
 		}
 
 		void readline::write_prompt() {
@@ -318,6 +318,19 @@ namespace native
 
 		void readline::handle_line(native::detail::resval e, std::string line) {
 			rl_callback(e, line);
+		}
+
+		void readline::write(const std::string& str) {
+		  write(str, [](){});
+		}
+
+		void readline::start_raw() {
+		  // Move cursor to start of line, erase to end of line, then back to start
+		  write("\x1b[0G\x1b[0K\x1b[0G", [](){});
+		}
+
+		void readline::end_raw() {
+		  refresh_line();
 		}
 
 } // namespace native

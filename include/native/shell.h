@@ -45,18 +45,23 @@ private:
   class shell_stringbuf : public std::stringbuf {
   private:
     native::Stream* stream_;
+    native::readline* rl_;
   public:
-    shell_stringbuf(native::Stream* stream) : stream_(stream) {}
+    shell_stringbuf(native::readline* rl, native::Stream* stream) :
+      stream_(stream), rl_(rl) {}
 
     virtual int sync() {
+      rl_->start_raw();
       stream_->write(Buffer(str()), [](){});
+      rl_->end_raw();
       str("");
       return 0;
     }
   };
   shell_stringbuf sb_;
 public:
-  shell_ostream(native::Stream* stream) : std::ostream(&sb_), sb_(stream) {}
+  shell_ostream(native::readline* rl, native::Stream* stream) :
+    std::ostream(&sb_), sb_(rl, stream) {}
 };
 
 
@@ -74,7 +79,8 @@ public:
   static shell* create();
   static shell* create(native::tty::ReadStream* in, native::tty::WriteStream* out);
 
-  void run(std::function<void(const native::Exception&)> callback);
+  void run(std::function<void()> terminate_callback,
+      std::function<void(const native::Exception&)> error_callback);
 
 //  void out(const std::string& text);
 //  void err(const std::string& text);
@@ -105,11 +111,12 @@ public:
 //    return shell_ostream(process::instance().stderr());
 //  }
 
-  shell_ostream cout;
-  shell_ostream cerr;
-
 private:
   std::shared_ptr<native::readline> rl_;
+public:
+  shell_ostream cout; //shell_ostream's depend on rl_ during construction
+  shell_ostream cerr;
+private:
   typedef std::unordered_map<std::string, regex_command_t> regex_commands_t;
   typedef std::unordered_map<std::string, simple_command_t> simple_commands_t;
   simple_commands_t simple_commands_; /** simple string commands */

@@ -77,6 +77,7 @@ namespace native
 	//			return ttyi->read_start<max_alloc_size>(callback);
 	//		}
 
+	private:
 		bool write(const char& c, std::function<void()> callback);
 
 		bool write(const char* buf, int len, std::function<void()> callback);
@@ -85,6 +86,7 @@ namespace native
 
 		bool write(const std::vector<char>& buf, std::function<void()> callback);
 
+	public:
 		void pause();
 
 		void destroy();
@@ -105,11 +107,16 @@ namespace native
 
 		void history_add(const std::string& line);
 
-	private:
+		void write(const std::string& str);
+
+		void start_raw();
+		void end_raw();
+
+  private:
 		std::string get_prompt();
 		void write_prompt();
-
 		void refresh_line();
+
 
 		void handle_line(native::detail::resval e, std::string line);
 	};

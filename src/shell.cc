@@ -29,8 +29,10 @@ shell* shell::create(native::tty::ReadStream* in, native::tty::WriteStream* out)
 }
 
 shell::shell(native::tty::ReadStream* in, native::tty::WriteStream* out)
-: cout(process::instance().stdout()), cerr(process::instance().stderr()),
-  rl_(readline::create(in, out)), prompt_string_("> ")
+: rl_(readline::create(in, out)),
+  cout(rl_.get(), process::instance().stdout()),
+  cerr(rl_.get(), process::instance().stderr()),
+  prompt_string_("> ")
 {}
 
 void shell::add_regex_command(std::string regex,
@@ -99,7 +101,7 @@ void shell::parse_line(const std::string& line) {
   //			std::vector<std::string>::iterator i = res.begin();
   //		std::string cmd = *res.begin();
 
-    rl_->write("unknown command: " + *first + "\n", [](){});
+    rl_->write("unknown command: " + *first + "\n");
   }
 //		int n = 0;
 //		std::stringstream ss;
@@ -119,7 +121,8 @@ std::string shell::prompt() {
   return prompt_string_;
 }
 
-void shell::run(std::function<void(const native::Exception&)> callback) {
+void shell::run(std::function<void()> terminate_callback,
+    std::function<void(const native::Exception&)> error_callback) {
 
   rl_->set_prompt(prompt());
 
@@ -129,7 +132,11 @@ void shell::run(std::function<void(const native::Exception&)> callback) {
       // TODO: need to add callback to Socket::destroy
 //      tty_->close([](){std::cerr << "native::repl::shell::run(): closed tty" << std::endl;});
       rl_->destroy();
-      callback(Exception(res));
+      if (res.code() == UV_EOF) {
+        terminate_callback();
+      } else {
+        error_callback(Exception(res));
+      }
     }
     else
     {
