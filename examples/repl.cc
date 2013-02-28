@@ -61,7 +61,9 @@ int main(int argc, char* argv[]) {
       s->cout << "line: " << line << std::endl;
     });
 
-    s->run([](const native::Exception& e) {
+    s->run([](){
+      std::cerr << "shell terminated" << std::endl;
+    }, [](const native::Exception& e) {
       std::cerr << "shell terminated with error: " << e.message() << std::endl;
     });
   });

@@ -43,7 +43,7 @@ namespace native {
       logic();
 
       // start event loop ;D
-      return uv_run(uv_default_loop());
+      return uv_run(uv_default_loop(), UV_RUN_DEFAULT);
   }
 
   void process::add_tick_callback(std::function<void()> callback)
