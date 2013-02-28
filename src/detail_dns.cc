@@ -747,11 +747,11 @@ void AfterGetAddrInfo(uv_getaddrinfo_t* req, int status, struct addrinfo* res) {
 }
 
 int dns::is_ip(const std::string& ip) {
-  char address_buffer(sizeof(struct in6_addr));
-  if (uv_inet_pton(AF_INET, ip.c_str(), &address_buffer).code == UV_OK) {
+  char address_buffer[sizeof(struct in6_addr)];
+  if (uv_inet_pton(AF_INET, ip.c_str(), address_buffer).code == UV_OK) {
     return 4;
   }
-  if (uv_inet_pton(AF_INET6, ip.c_str(), &address_buffer).code == UV_OK) {
+  if (uv_inet_pton(AF_INET6, ip.c_str(), address_buffer).code == UV_OK) {
     return 6;
   }
   return 0;
