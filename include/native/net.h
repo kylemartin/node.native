@@ -54,8 +54,7 @@ inline bool isIPv6(const std::string& input) {
 /**
  *  Represents the type of socket stream.
  */
-struct SocketType {
-  enum {
+enum SocketType {
     /**
      *  IPv4 socket.
      */
@@ -72,7 +71,6 @@ struct SocketType {
      *  Invalid type of socket.
      */
     None
-  };
 };
 
 class Server;
@@ -217,6 +215,10 @@ public:
 
   std::size_t bufferSize() const;
 
+  std::string localAddress() const;
+
+  int localPort() const;
+
   std::string remoteAddress() const;
 
   int remotePort() const;
@@ -318,8 +320,6 @@ public:
 
   void close();
 
-  int address(std::string& ip_or_pipe_name, int& port);
-
   std::size_t maxConnections() const {
     return max_connections_;
   }
@@ -330,6 +330,12 @@ public:
   std::size_t connections() const {
     return connections_;
   }
+
+  SocketType type() const;
+
+  std::string address() const;
+
+  int port() const;
 
 protected:
   void emitCloseIfDrained();
@@ -346,7 +352,7 @@ public:
   std::size_t max_connections_;
   bool allow_half_open_;
   int backlog_;
-  int socket_type_;
+  SocketType socket_type_;
   std::string pipe_name_;
 };
 
