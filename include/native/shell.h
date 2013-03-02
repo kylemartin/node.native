@@ -111,6 +111,10 @@ public:
 //    return shell_ostream(process::instance().stderr());
 //  }
 
+  bool running() {
+    return running_;
+  }
+
 private:
   std::shared_ptr<native::readline> rl_;
 public:
@@ -123,6 +127,7 @@ private:
   regex_commands_t regex_commands_; /** regex commands */
   std::function<std::string()> prompt_callback_;
   std::string prompt_string_;
+  bool running_;
 
   void parse_line(const std::string& line);
   std::string prompt();

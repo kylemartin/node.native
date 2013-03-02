@@ -106,14 +106,16 @@ namespace native
 
 						switch (c) {
 						case 13: /* enter */
+						{
 						  // TODO handle write error
               write('\n', [=](){});
-							handle_line(native::detail::resval(), line_buf);
-							line_buf.clear();
+              std::string line(line_buf);
+              line_buf.clear();
 							line_pos = 0;
 							history_index = 0;
+							handle_line(native::detail::resval(), line);
 							write_prompt();
-							break;
+						} break;
 						case 3: /* ctrl-c: cancel current line */
 						  if (line_buf.size() > 0) {
 						    line_buf.clear();
@@ -330,7 +332,7 @@ namespace native
 		}
 
 		void readline::end_raw() {
-		  refresh_line();
+      write("\x1b[0G\x1b[0K\x1b[0G", [](){});
 		}
 
 } // namespace native

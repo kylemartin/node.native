@@ -7,6 +7,7 @@
 
 namespace native
 {
+  class shell;
     class process : public EventEmitter
     {
     public:
@@ -23,31 +24,37 @@ namespace native
          */
         static int run(std::function<void()> callback);
 
-    private:
-        process();
-
-        process(const process&) = delete;
-        void operator =(const process&) = delete;
-
+        static native::shell* shell();
+        static bool shell_enabled();
         virtual ~process() {}
 
-    public:
-
-        int start(std::function<void()> logic);
 
         void add_tick_callback(std::function<void()> callback);
 
         Stream* stdin() { return stdin_; }
         Stream* stdout() { return stdout_; }
         Stream* stderr() { return stderr_; }
+
+        static std::ostream& cout() { return *(instance().cout_); }
+        static std::ostream& cerr() { return *(instance().cerr_); }
+
     private:
+        process();
+
+        process(const process&) = delete;
+        void operator =(const process&) = delete;
+
+        int start(std::function<void()> logic);
         void init();
 
         void tick();
 
         void enable_tick();
 
-    private:
+        void prepareStdio();
+
+
+
         double start_time_;
 
         uv_check_t check_;
@@ -59,8 +66,9 @@ namespace native
         Stream* stdin_;
         Stream* stdout_;
         Stream* stderr_;
-
-        void prepareStdio();
+        std::ostream* cout_;
+        std::ostream* cerr_;
+        native::shell* shell_;
 
 
 /* Signal Events **************************************************************/

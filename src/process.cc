@@ -1,7 +1,42 @@
 #include "native/process.h"
 #include "native/tty.h"
+#include "native/shell.h"
 
 namespace native {
+
+// http://stackoverflow.com/a/2212940
+class process_ostream : public std::ostream {
+private:
+  class process_stringbuf : public std::stringbuf {
+  private:
+    bool err_;
+  public:
+    process_stringbuf(bool err) : err_(err) {}
+
+    virtual int sync() {
+      process& instance = process::instance();
+      if (instance.shell_enabled()) {
+        if (err_) {
+          instance.shell()->cout << str() << std::flush;
+        } else {
+          instance.shell()->cerr << str() << std::flush;
+        }
+      } else {
+        if (err_) {
+          instance.stderr()->write(Buffer(str()), [](){});
+        } else {
+          instance.stdout()->write(Buffer(str()), [](){});
+        }
+      }
+      str("");
+      return 0;
+    }
+  };
+  process_stringbuf sb_;
+public:
+  process_ostream(bool err) :
+    std::ostream(&sb_), sb_(err) {}
+};
 
   process::process()
   : start_time_()
@@ -13,6 +48,9 @@ namespace native {
   , stdin_()
   , stdout_()
   , stderr_()
+  , cout_(new process_ostream(false))
+  , cerr_(new process_ostream(true))
+  , shell_()
   {
   }
 
@@ -200,4 +238,15 @@ namespace native {
           uv_unref(reinterpret_cast<uv_handle_t*>(&idle_));
       }
   }
+
+  native::shell* process::shell() {
+    process& instance_ = instance();
+    if (instance_.shell_) return instance_.shell_;
+    return instance_.shell_ = native::shell::create();
+  };
+
+  bool process::shell_enabled() {
+    return instance().shell_ != nullptr && instance().shell_->running();
+  }
+
 }  // namespace native

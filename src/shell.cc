@@ -32,7 +32,8 @@ shell::shell(native::tty::ReadStream* in, native::tty::WriteStream* out)
 : rl_(readline::create(in, out)),
   cout(rl_.get(), process::instance().stdout()),
   cerr(rl_.get(), process::instance().stderr()),
-  prompt_string_("> ")
+  prompt_string_("> "),
+  running_(false)
 {}
 
 void shell::add_regex_command(std::string regex,
@@ -145,6 +146,7 @@ void shell::run(std::function<void()> terminate_callback,
       rl_->set_prompt(prompt());
     }
   });
+  running_ = true;
 }
 
 //void shell::out(const std::string& text) {

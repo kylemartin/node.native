@@ -110,12 +110,12 @@ protected:
   Socket(detail::stream* handle = nullptr, Server* server = nullptr,
       bool allowHalfOpen = false);
 
+public:
   /**
    *  @brief Socket destructor.
    */
   virtual ~Socket();
 
-public:
   /**
    *  @brief Sends the last data and close the socket stream.
    *
