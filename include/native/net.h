@@ -303,10 +303,10 @@ class Server: public EventEmitter {
 protected:
   Server(bool allowHalfOpen = false);
 
-  virtual ~Server() {
-  }
 
 public:
+  virtual ~Server() {}
+
   // listen over TCP socket
   bool listen(int port, const std::string& host = std::string("0.0.0.0"),
       event::listening::callback_type listeningListener = nullptr);

@@ -37,7 +37,8 @@ udp::udp(const udp_type& type)
 
 udp* udp::createSocket(const udp_type& type, udp::message_callback_t callback) {
   auto socket = new udp(type);
-  socket->on<event::udp::message>(callback);
+  if (callback)
+    socket->on<event::udp::message>(callback);
   return socket;
 }
 

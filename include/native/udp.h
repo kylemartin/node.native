@@ -22,7 +22,9 @@ namespace native {
     typedef std::function<void(const detail::Buffer&, std::shared_ptr<detail::net_addr>)> message_callback_t;
     typedef std::function<void()> send_callback_t;
 
-    static udp* createSocket(const udp_type& type, message_callback_t callback);
+    virtual ~udp() {}
+
+    static udp* createSocket(const udp_type& type, message_callback_t callback = nullptr);
 
     detail::resval send(const detail::Buffer& buf, size_t offset, size_t length
         , unsigned short int port, const std::string& address
@@ -55,7 +57,6 @@ X(set_multicast_loopback)
     void stopReceiving_();
 
     udp(const udp_type& type);
-    virtual ~udp() {}
     udp_type type_;
     detail::udp udp_;
     bool receiving_;

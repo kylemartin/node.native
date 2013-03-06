@@ -1,7 +1,7 @@
 #ifndef __EVENTS_H__
 #define __EVENTS_H__
 
-#include "base.h"
+#include "detail/utility.h"
 #include "detail/buffers.h"
 
 namespace native
