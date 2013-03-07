@@ -16,11 +16,11 @@ namespace native
 		Buffer();
 		Buffer(const Buffer& c);
 		Buffer(Buffer&& c);
-		explicit Buffer(const std::vector<char>& data);
-		explicit Buffer(const std::string& str);
-		explicit Buffer(const std::string& str, const detail::encoding_type& encoding);
-		explicit Buffer(const char* data, std::size_t length);
-		explicit Buffer(std::nullptr_t);
+		Buffer(const std::string& str);
+		Buffer(const std::vector<char>& data);
+		Buffer(const std::string& str, const detail::encoding_type& encoding);
+		Buffer(const char* data, std::size_t length);
+		Buffer(std::nullptr_t);
 
 		virtual ~Buffer();
 

@@ -127,6 +127,9 @@ bool Socket::end()
 // bool Socket::write(const Buffer& buffer) { assert(false); return false; } //-> virtual bool write(const Buffer& buffer, write_callback_type callback=nullptr)
 bool Socket::write(const std::string& str, const std::string& encoding, int fd) { assert(false); return false; }
 
+bool Socket::write(const std::string& buffer, std::function<void()> callback) {
+  return write(Buffer(buffer), callback);
+}
 // TODO: this is not inherited from Stream - a new overload.
 // callback is invoked after all data is written.
 bool Socket::write(const Buffer& buffer, std::function<void()> callback)

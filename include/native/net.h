@@ -153,6 +153,8 @@ public:
   virtual bool write(const std::string& str, const std::string& encoding,
       int fd);
 
+  virtual bool write(const std::string& buffer, std::function<void()> callback =
+      nullptr);
   // TODO: this is not inherited from Stream - a new overload.
   // callback is invoked after all data is written.
   /**
