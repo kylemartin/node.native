@@ -235,9 +235,9 @@ void Socket::setTimeout(unsigned int msecs, std::function<void()> callback)
     if(callback) once<event::timeout>(callback);
   }
   else // msecs == 0
-      {
+  {
     timers::unenroll(timeout_emitter_);;
-      }
+  }
 }
 
 bool Socket::setNoDelay()

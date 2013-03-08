@@ -10,6 +10,7 @@ native::event::error
 ## Registered ##
  */
 
+#include "native/process.h"
 #include "native/udp.h"
 #include "native/detail/buffers.h"
 #include "native/error.h"
@@ -42,20 +43,20 @@ udp* udp::createSocket(const udp_type& type, udp::message_callback_t callback) {
   return socket;
 }
 
-void udp::bind(int port, const std::string& address) {
+bool udp::bind(int port, const std::string& address) {
   // TODO: resolve address
-  if (udp_.bind(address, port)) {
-    // TODO: handle bind error
+  detail::resval r = udp_.bind(address, port);
+  if (!r) {
+    DBG("udp bind error: " << r.str());
+    return false;
   }
   udp_.recv_start();
   receiving_ = true;
   bound_ = true;
-  emit<event::listening>();
-}
-
-void udp::bind(){
-  // TODO: pick random port
-  bind(1234);
+  process::nextTick([=](){
+    emit<event::listening>();
+  });
+  return true;
 }
 
 detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
@@ -81,8 +82,24 @@ void udp::close() {
   emit<event::close>();
 }
 
-std::shared_ptr<detail::net_addr> udp::address() {
-  return udp_.get_sock_name();
+std::string udp::address() {
+  if(type_ == UDP4 || type_ == UDP6)
+  {
+    auto addr = udp_.get_sock_name();
+    if(addr) return addr->ip;
+  }
+
+  return std::string();
+}
+
+int udp::port() {
+  if(type_ == UDP4 || type_ == UDP6)
+  {
+    auto addr = udp_.get_sock_name();
+    if(addr) return addr->port;
+  }
+
+  return 0;
 }
 
 #define X(name)                                                                \

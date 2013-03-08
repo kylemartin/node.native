@@ -44,9 +44,7 @@ public:
       idleTimeout_(-1), idleStart_(-1) {
   }
   virtual void on_timeout() = 0;
-  virtual ~TimeoutHandler() {
-    std::cerr << "~TimeoutHandler()" << std::endl;
-  }
+  virtual ~TimeoutHandler() {}
 private:
   int64_t idleTimeout_;
   int64_t idleStart_;
@@ -84,6 +82,9 @@ private:
   timeout_callback_type callback_;
 };
 
+/**
+ * Wrapper around a uv_timer
+ */
 class timer: public detail::handle {
   friend class timers;
 public:
@@ -91,33 +92,44 @@ public:
   /** A list of TimeoutHandler pointers associated with this timer */
   typedef std::list<std::shared_ptr<TimeoutHandler>> list_type;
 
-  // TODO: make this noncopyable
+  // this is noncopyable
+  timer(const timer&) = delete;
+  timer& operator=(const timer&) = delete;
+
   timer();
-  virtual ~timer();
+  virtual ~timer() {}
 
-private:
-  static void handle_timeout_(uv_timer_t* handle, int status);
-
-public:
-
+  /** Set the callback for this timer */
   void on_timeout(timeout_callback_type callback);
 
+  /** Start the timer */
   detail::resval start(int64_t timeout, int64_t repeat);
 
+  /** Stop the timer */
   detail::resval stop();
 
+  /** Repeat the timer */
   detail::resval again();
+
+  /** Set timer period */
   void set_repeat(int64_t repeat);
 
+  /** Get timer period */
   int64_t get_repeat();
 
 private:
+  /** Callback invoked by uv_timer */
+  static void handle_timeout_(uv_timer_t* handle, int status);
+
   uv_timer_t timer_;
   timeout_callback_type on_timeout_;
   list_type list_;
   int64_t timeout_;
 };
 
+/**
+ * Manages timers
+ */
 class timers {
   friend class timer;
 public:
@@ -144,11 +156,14 @@ public:
   static void unenroll(std::shared_ptr<TimeoutHandler> item);
 };
 
-std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback,
-    int delay);
-bool clearTimeout(std::shared_ptr<TimeoutHandler> handler);
-timer* setInterval(timeout_callback_type callback, int repeat);
-bool clearInterval(timer* timer);
+  std::shared_ptr<TimeoutHandler> setTimeout(const timeout_callback_type callback,
+      int delay);
+  std::shared_ptr<TimeoutHandler> setTimeout(EventEmitter* emitter, int delay);
+  bool clearTimeout(std::shared_ptr<TimeoutHandler> handler);
+
+  // TODO: extend TimeoutHandler for intervals
+  timer* setInterval(timeout_callback_type callback, int repeat);
+  bool clearInterval(timer* timer);
 }
 
 #endif

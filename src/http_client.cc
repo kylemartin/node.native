@@ -45,7 +45,7 @@ CRUMB();
 
 void ClientRequest::do_connect(const std::string& host) {
   ClientRequest* self = this;
-  DBG("client connecting to: " << self->host_ << "(" << host << ")" << ":" << self->port_);
+//  DBG("client connecting to: " << self->host_ << "(" << host << ")" << ":" << self->port_);
 
   net::Socket* socket = net::createSocket();
 
@@ -86,7 +86,7 @@ CRUMB();
   if (!detail::dns::is_ip(host_)) {
     detail::dns::QueryGetHostByName(host_, [=](int status, const std::vector<std::string>& results, int family){
       if (results.size()) {
-        DBG("client resolved host: " << host_ << " to: " << results[0]);
+//        DBG("client resolved host: " << host_ << " to: " << results[0]);
         do_connect(results[0]);
       } else {
         DBG("client could not resolve host: " << host_);

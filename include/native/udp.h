@@ -30,12 +30,14 @@ namespace native {
         , unsigned short int port, const std::string& address
         , detail::udp::on_complete_t callback = nullptr);
 
-    void bind();
-    void bind(int port, const std::string& address = "127.0.0.1");
+    bool bind(int port = 0, const std::string& address = "0.0.0.0");
 
     void close();
 
-    std::shared_ptr<detail::net_addr> address();
+//    std::shared_ptr<detail::net_addr> address();
+
+    std::string address();
+    int port();
 
     void add_membership(const std::string& address, const std::string& iface);
     void drop_membership(const std::string& address, const std::string& iface);

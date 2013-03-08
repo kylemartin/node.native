@@ -542,7 +542,7 @@ void OutgoingMessage::_send(const Buffer& buf) {
 
 // TODO: handle encoding
 void OutgoingMessage::_writeRaw(const Buffer& buf) {
-  DBG("writing:\n" << buf.str());
+//  DBG("writing:\n" << buf.str());
 //js:  if (data.length === 0) {
 //js:    return true;
 //js:  }
