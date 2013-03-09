@@ -126,7 +126,8 @@ resval udp::send(const Buffer& buffer, size_t offset, size_t length
   request->buffer_ = buffer;
   request->on_complete_ = callback;
 
-  uv_buf_t buf = uv_buf_init(const_cast<char*>(buffer.base()) + offset, length);
+  uv_buf_t buf = uv_buf_init(
+      const_cast<char*>(request->buffer_.base()) + offset, length);
 
   switch (family) {
   case AF_INET:
