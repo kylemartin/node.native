@@ -75,11 +75,11 @@ CRUMB();
   //  registerEvent<native::event::http::finish>();
   //////////////////////////////////////////////////
 
-  registerEvent<event::connect>();
-  registerEvent<native::event::http::socket>();
-  registerEvent<native::event::http::Continue>();
-  registerEvent<native::event::http::client::upgrade>();
   registerEvent<native::event::http::client::response>();
+  registerEvent<native::event::http::socket>();
+  registerEvent<native::event::http::client::connect>();
+  registerEvent<native::event::http::client::upgrade>();
+  registerEvent<native::event::http::Continue>();
 
   // resolve hostname
 
@@ -251,15 +251,15 @@ void ClientRequest::init_socket(net::Socket* socket) {
     // TODO: set parser max. headers
     // TODO: Setup drain event
     // TODO: remove drain before setting it
-    socket_->on<native::event::connect>([this]() {
-          this->on_socket_connect();
-        });
-    socket_->on<native::event::drain>([this]() {
-          this->on_socket_drain();
-        });
-    socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
-          this->on_socket_error(e);
-        });
+//    socket_->on<native::event::connect>([this]() {
+//          this->on_socket_connect();
+//        });
+//    socket_->on<native::event::drain>([this]() {
+//          this->on_socket_drain();
+//        });
+//    socket_error_listener_ = socket_->on<native::event::error>([this](const Exception& e) {
+//          this->on_socket_error(e);
+//        });
 //    socket_->on<native::event::data>([this](const Buffer& buf) {
 //          this->on_socket_data(buf);
 //        });
@@ -273,7 +273,7 @@ void ClientRequest::init_socket(net::Socket* socket) {
     // set on incoming callback on parser
     parser->register_on_incoming([=](net::Socket* socket,
         Parser* parser) {
-          IncomingMessage* result = new ClientResponse(socket, parser);
+          ClientResponse* result = new ClientResponse(socket, parser);
           this->on_incoming_message(result);
           return result;
         });
@@ -283,11 +283,7 @@ void ClientRequest::init_socket(net::Socket* socket) {
     });
 
     parser->register_on_close([this]() {
-      emit<event::error>(Exception("Parser closed before ClientResponse constructed"));
-    });
-
-    parser->register_on_end([this]() {
-      emit<event::error>(Exception("Parser end before ClientResponse constructed"));
+      emit<event::close>();
     });
 
     // Emit socket event
@@ -295,9 +291,8 @@ void ClientRequest::init_socket(net::Socket* socket) {
   });
 }
 
-void ClientRequest::on_incoming_message(IncomingMessage* msg) {
+void ClientRequest::on_incoming_message(ClientResponse* res) {
 CRUMB();
-  ClientResponse* res = static_cast<ClientResponse*>(msg);
   net::Socket* socket = res->socket();
 
 //js:              if (req.res) {

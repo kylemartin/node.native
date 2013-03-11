@@ -478,7 +478,7 @@ namespace native
 
       void init_socket(net::Socket* socket);
 
-      void on_incoming_message(IncomingMessage* msg);
+      void on_incoming_message(ClientResponse* msg);
 
       void on_response_end();
 

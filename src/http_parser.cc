@@ -125,36 +125,44 @@ void Parser::registerSocketEvents() {
       {
         // parse end
         socket_->pause();
-      }
-      else
-      {
-        // more reads required: keep reading!
-      }
+      } // otherwise more reads required: keep reading!
   });
 
   socket_->on<native::event::end>([=](){
+    // TODO: maybe reuse the Parser::on_error(...) method?
     // EOF
-    if(parsing())
-    {
-      // HTTP request was not properly parsed.
-      on_error_(Exception("socket end before parsing finished"));
-      on_close_();
+    // We can ignore if successfully completed parsing a message.
+    // Don't relay it here since the parser emits end on message completion
+    // and the socket may be kept open after parsing and no end emitted.
+    if (incoming_ && !parsing()) return;
+
+    if (incoming_) {
+      // Created response but message not complete
+      incoming_->parser_on_error(Exception("socket end before message complete"));
+      // socket will next emit close
+    } else { // Haven't created response so must emit on request
+      // Started parsing headers but not yet complete
+      on_error_(Exception("socket end before headers complete"));
     }
-    on_end_();
   });
 
   socket_->on<native::event::error>([=](const native::Exception& e){
-    on_error_(e);
+    if (incoming_) {
+      incoming_->parser_on_error(e);
+    } else {
+      on_error_(e);
+    }
   });
 
   socket_->on<native::event::close>([=](){
     // EOF
-    if(parsing())
-    {
-      // HTTP request was not properly parsed.
-      on_error_(Exception("socket close before parsing finished"));
+    if (incoming_ && !parsing()) return;
+    if (incoming_) {
+      // TODO: add members to IncomingMessage so events are emitted there
+      incoming_->emit<native::event::close>();
+    } else {
+      on_close_();
     }
-    on_close_();
   });
 
 //  socket_->on<event::connect>([=]() {
