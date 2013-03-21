@@ -6,7 +6,7 @@
 
 namespace native
 {
-    class Exception
+    class Exception : public std::exception
     {
     public:
         Exception(const std::string& message=std::string())
@@ -25,10 +25,11 @@ namespace native
             : message_()
         {}
 
-        virtual ~Exception()
+        virtual ~Exception() noexcept
         {}
 
-    public:
+        virtual const char* what() const noexcept { return message_.c_str(); }
+
         const std::string& message() const { return message_; }
 
     private:
