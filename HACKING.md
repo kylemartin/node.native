@@ -29,6 +29,12 @@ Checkout, configure and make:
 	$ make
 
 Then follow http://sourceware.org/gdb/wiki/BuildingOnDarwin to create a key and sign the executable (./gdb/gdb).
+On Mountain Lion do the following (http://stackoverflow.com/a/13655356):
+	$ sudo chgrp procmod /usr/local/bin/gdb
+	$ sudo chmod g+s /usr/local/bin/gdb
+	Edit /System/Library/LaunchDaemons/com.apple.taskgated.plist and add -p argument to taskgated process
+	Force kill taskgated process (it will restart)
+
 Then do install gdb and supporting code (like python libraries needed by Eclipse):
 	$ sudo make install
 
