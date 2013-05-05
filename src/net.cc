@@ -311,6 +311,32 @@ std::size_t Socket::bufferSize() const
   return 0;
 }
 
+std::string Socket::localAddress() const {
+  if(socket_type_ == SocketType::IPv4 || socket_type_ == SocketType::IPv6)
+  {
+    auto x = dynamic_cast<detail::tcp*>(stream_);
+    assert(x);
+
+    auto addr = x->get_sock_name();
+    if(addr) return addr->ip;
+  }
+
+  return std::string();
+}
+
+int Socket::localPort() const {
+  if(socket_type_ == SocketType::IPv4 || socket_type_ == SocketType::IPv6)
+  {
+    auto x = dynamic_cast<detail::tcp*>(stream_);
+    assert(x);
+
+    auto addr = x->get_sock_name();
+    if(addr) return addr->port;
+  }
+
+  return 0;
+}
+
 std::string Socket::remoteAddress() const
 {
   if(socket_type_ == SocketType::IPv4 || socket_type_ == SocketType::IPv6)
@@ -596,50 +622,90 @@ void Server::pause(unsigned int msecs) {
 CRUMB();
 }
 
-int Server::address(std::string& ip_or_pipe_name, int& port)
+SocketType Server::type() const {
+  return socket_type_;
+}
+
+std::string Server::address() const
 {
-  if(!stream_) return SocketType::None;
+  if(!stream_) return "";
+
+  std::string address;
+
+  switch(socket_type_) {
+    case SocketType::IPv4: {
+      auto x = dynamic_cast<detail::tcp*>(stream_);
+      assert(x);
+
+      auto addr = x->get_sock_name();
+      if(addr)
+      {
+        assert(addr->is_ipv4);
+        address = addr->ip;
+      }
+    } break;
+
+    case SocketType::IPv6: {
+      auto x = dynamic_cast<detail::tcp*>(stream_);
+      assert(x);
+
+      auto addr = x->get_sock_name();
+      if(addr)
+      {
+        address = addr->ip;
+      }
+      assert(!addr->is_ipv4);
+    } break;
+
+    case SocketType::Pipe: {
+      address = pipe_name_;
+    } break;
+
+    case SocketType::None:
+      break;
+  }
+
+  return address;
+}
+
+int Server::port() const
+{
+  if(!stream_) return -1;
+
+  int port = -1;
 
   switch(socket_type_)
   {
-  case SocketType::IPv4:
-  {
-    auto x = dynamic_cast<detail::tcp*>(stream_);
-    assert(x);
+    case SocketType::IPv4: {
+      auto x = dynamic_cast<detail::tcp*>(stream_);
+      assert(x);
 
-    auto addr = x->get_sock_name();
-    if(addr)
-    {
-      ip_or_pipe_name = addr->ip;
-      port = addr->port;
-    }
-    assert(addr->is_ipv4);
-  }
-  break;
+      auto addr = x->get_sock_name();
+      if(addr)
+      {
+        port = addr->port;
+      }
+      assert(addr->is_ipv4);
+    } break;
 
-  case SocketType::IPv6:
-  {
-    auto x = dynamic_cast<detail::tcp*>(stream_);
-    assert(x);
+    case SocketType::IPv6: {
+      auto x = dynamic_cast<detail::tcp*>(stream_);
+      assert(x);
 
-    auto addr = x->get_sock_name();
-    if(addr)
-    {
-      ip_or_pipe_name = addr->ip;
-      port = addr->port;
-    }
-    assert(!addr->is_ipv4);
-  }
-  break;
+      auto addr = x->get_sock_name();
+      if(addr)
+      {
+        port = addr->port;
+      }
+      assert(!addr->is_ipv4);
+    } break;
 
-  case SocketType::Pipe:
-  {
-    ip_or_pipe_name = pipe_name_;
-  }
-  break;
+    case SocketType::Pipe:
+    case SocketType::None:
+      break;
   }
 
-  return socket_type_;
+  return port;
 }
 
 void Server::emitCloseIfDrained()

@@ -2,6 +2,7 @@
 #define __EVENTS_H__
 
 #include "base.h"
+#include "detail/buffers.h"
 
 namespace native
 {
