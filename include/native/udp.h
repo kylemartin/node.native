@@ -30,7 +30,7 @@ namespace native {
         , unsigned short int port, const std::string& address
         , detail::udp::on_complete_t callback = nullptr);
 
-    bool bind(int port = 0, const std::string& address = "0.0.0.0");
+    detail::resval bind(int port = 0, const std::string& address = "0.0.0.0");
 
     void close();
 

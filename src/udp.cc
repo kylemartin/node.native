@@ -43,12 +43,11 @@ udp* udp::createSocket(const udp_type& type, udp::message_callback_t callback) {
   return socket;
 }
 
-bool udp::bind(int port, const std::string& address) {
+detail::resval udp::bind(int port, const std::string& address) {
   // TODO: resolve address
   detail::resval r = udp_.bind(address, port);
   if (!r) {
-    DBG("udp bind error: " << r.str());
-    return false;
+    return r;
   }
   udp_.recv_start();
   receiving_ = true;
@@ -56,12 +55,15 @@ bool udp::bind(int port, const std::string& address) {
   process::nextTick([=](){
     emit<event::listening>();
   });
-  return true;
+  return r;
 }
 
 detail::resval udp::send(const detail::Buffer& buf, size_t offset, size_t length
     , unsigned short int port, const std::string& address
     , detail::udp::on_complete_t callback) {
+  if (buf.size() == 0) {
+    return detail::resval("ignoring empty buffer");
+  }
   if (offset >= buf.size()) {
     throw new Exception("Offset into buffer too large");
   }

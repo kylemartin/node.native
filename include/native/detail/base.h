@@ -119,8 +119,8 @@ namespace native
             resval(int error_code=error::ok) : error_code_(error_code) {}
             explicit resval(uv_err_t e) : error_code_(e.code) {}
             explicit resval(uv_err_code code) : error_code_(code) {}
-
-            operator bool() const { return error_code_ == error::ok; }
+            explicit resval(const std::string& msg) : error_code_(-1), msg_(msg) {}
+            operator bool() const { return msg_.size() == 0 && error_code_ == error::ok; }
             bool operator !() const { return  error_code_ != error::ok; }
 
             int code() const
@@ -130,6 +130,10 @@ namespace native
 
             const char* str() const
             {
+                if (msg_.size() > 0) {
+                  return msg_.c_str();
+                }
+
                 if(error_code_ < static_cast<int>(error::__libuv_max))
                 {
                     return uv_strerror(uv_err_t{static_cast<uv_err_code>(error_code_), 0});
@@ -145,10 +149,14 @@ namespace native
             }
         private:
             int error_code_;
+            std::string msg_;
         };
 
         struct net_addr
         {
+            net_addr() : net_addr(0,"") {}
+            net_addr(const int& port, const std::string& ip)
+            : is_ipv4(true), ip(ip), port(port) {}
             bool is_ipv4;
             std::string ip;
             int port;
