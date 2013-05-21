@@ -235,7 +235,7 @@ public:
 
               self->tick();
           });
-          uv_unref(reinterpret_cast<uv_handle_t*>(&idle_));
+          uv_ref(reinterpret_cast<uv_handle_t*>(&idle_));
       }
   }
 
