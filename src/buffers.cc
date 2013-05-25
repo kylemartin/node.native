@@ -76,6 +76,8 @@ namespace native
 
   Buffer Buffer::slice(std::size_t start, std::size_t end)
   {
+    if (end <= start || start >= data_.size()) return Buffer();
+    if (end > data_.size()) end = data_.size();
     return Buffer(std::vector<char>(data_.begin()+start, data_.begin()+end));
   }
 

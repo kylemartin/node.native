@@ -160,6 +160,10 @@ namespace native
             bool is_ipv4;
             std::string ip;
             int port;
+
+            std::string ToString() {
+              return ip + ":" + std::to_string(port);
+            }
         };
 
         inline int get_ip_version(const std::string& ip)
